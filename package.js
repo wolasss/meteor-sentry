@@ -1,6 +1,6 @@
 Package.describe({
   name: 'wolas:sentry',
-  version: '0.0.1',
+  version: '0.0.2',
   summary: 'A simple wrapper for sentry SDK. Allows to use sentry in both client and server in meteor apps.',
   git: 'https://github.com/wolasss/meteor-sentry',
   documentation: 'README.md'
