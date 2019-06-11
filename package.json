@@ -12,7 +12,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/wolasss/meteor-sentry.git"
+        "url": "git@github.com:wolasss/meteor-sentry.git"
     },
     "author": "Adam Wolski",
     "license": "MIT",
