@@ -9,8 +9,8 @@ Package.describe({
 });
 
 Npm.depends({
-  '@sentry/browser': '5.2.1',
-  '@sentry/node': '5.2.0'
+  '@sentry/browser': '5.4.0',
+  '@sentry/node': '5.4.0'
 });
 
 Package.onUse(function(api) {
