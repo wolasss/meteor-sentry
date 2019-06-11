@@ -1,0 +1,72 @@
+{
+    "name": "meteor-sentry",
+    "version": "0.0.2",
+    "description": "A simple wrapper for sentry SDK. Allows to use sentry in both client and server in meteor apps.",
+    "main": "package.js",
+    "directories": {
+        "lib": "lib"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/wolasss/meteor-sentry.git"
+    },
+    "author": "Adam Wolski",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/wolasss/meteor-sentry/issues"
+    },
+    "homepage": "https://github.com/wolasss/meteor-sentry#readme",
+    "devDependencies": {
+        "@commitlint/cli": "^8.0.0",
+        "@commitlint/config-conventional": "^8.0.0",
+        "@semantic-release/changelog": "^3.0.2",
+        "@semantic-release/commit-analyzer": "^6.1.0",
+        "@semantic-release/git": "^7.0.8",
+        "@semantic-release/npm": "^5.1.7",
+        "@semantic-release/release-notes-generator": "^7.1.4",
+        "husky": "^2.4.0"
+    },
+    "husky": {
+        "hooks": {
+            "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+        }
+    },
+    "release": {
+        "branch": "master",
+        "ci": false,
+        "plugins": [
+            [
+                "@semantic-release/commit-analyzer",
+                {
+                    "preset": "angular",
+                    "releaseRules": [
+                        {
+                            "type": "docs",
+                            "release": "patch"
+                        },
+                        {
+                            "type": "chore",
+                            "release": "patch"
+                        },
+                        {
+                            "type": "refactor",
+                            "release": "patch"
+                        }
+                    ]
+                }
+            ],
+            "@semantic-release/release-notes-generator",
+            "@semantic-release/changelog",
+            [
+                "@semantic-release/npm",
+                {
+                    "npmPublish": false
+                }
+            ],
+            "@semantic-release/git"
+        ]
+    }
+}

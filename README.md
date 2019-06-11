@@ -1,5 +1,8 @@
 # wolas:sentry
 
+[![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
+
+
 This package is a wrapper for sentry library. It allows you to simply use latest Sentry SDK on both client and a server in your meteor application.
 
 This package is MIT Licensed.
@@ -7,7 +10,7 @@ This package is MIT Licensed.
 # Installation
 
 ```
-    meteor add wolas:sentry
+meteor add wolas:sentry
 ```
 
 # Usage
@@ -17,23 +20,23 @@ The same interface can be used on a client and server.
 ## Initialization (client/server)
 
 ```
-    import Logger from 'meteor/wolas:sentry';
+import Logger from 'meteor/wolas:sentry';
 
-    Logger.init({
-        dsn: YOUR_SENTRY_DSN GOES HERE
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE
 
-        //any other options you want to pass to sentry init function
-    });
+    //any other options you want to pass to sentry init function
+});
 ```
 
 ## Logging events (client/server)
 
 ```
-    import Logger from 'meteor/wolas:sentry';
+import Logger from 'meteor/wolas:sentry';
 
-    Logger.info('Something happened', {
-        userId: getUserId()
-    });
+Logger.info('Something happened', {
+    userId: getUserId()
+});
 ```
 
 Logger has methods for all Sentry severity levels, such as:
@@ -67,12 +70,12 @@ Any unhandled exceptions that happen on the client or server should be automatic
 If you wish to postprocess an event somehow - for instance log it to the console, you can pass a custom function in initialization.
 
 ```
-    import Logger from 'meteor/wolas:sentry';
+import Logger from 'meteor/wolas:sentry';
 
-    Logger.init({
-        dsn: YOUR_SENTRY_DSN GOES HERE,
-        postprocess: function(level, event, extra) {
-            console.log(`[${level}] - ${event}`, extra);
-        }
-    });
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE,
+    postprocess: function(level, event, extra) {
+        console.log(`[${level}] - ${event}`, extra);
+    }
+});
 ```
