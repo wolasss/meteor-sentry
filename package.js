@@ -1,8 +1,6 @@
-const packagejson = require('./package.json');
-
 Package.describe({
   name: 'wolas:sentry',
-  version: packagejson.version,
+  version: '1.0.0',
   summary: 'A simple wrapper for sentry SDK. Allows to use sentry in both client and server in meteor apps.',
   git: 'https://github.com/wolasss/meteor-sentry',
   documentation: 'README.md'
