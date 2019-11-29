@@ -8,7 +8,7 @@ Package.describe({
 
 Npm.depends({
   '@sentry/browser': '5.9.1',
-  '@sentry/node': '5.9.1'
+  '@sentry/node': '5.9.0'
 });
 
 Package.onUse(function(api) {
