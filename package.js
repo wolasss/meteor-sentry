@@ -1,6 +1,6 @@
 Package.describe({
   name: 'wolas:sentry',
-  version: '1.0.8',
+  version: '1.0.11',
   summary: 'A simple wrapper for sentry SDK. Allows to use sentry in both client and server in meteor apps.',
   git: 'https://github.com/wolasss/meteor-sentry',
   documentation: 'README.md'
@@ -8,7 +8,7 @@ Package.describe({
 
 Npm.depends({
   '@sentry/browser': '8.26.0',
-  '@sentry/node': '8.26.0'
+  '@sentry/node': '7.119.0'
 });
 
 Package.onUse(function(api) {

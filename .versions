@@ -13,4 +13,4 @@ modules@0.20.0
 modules-runtime@0.13.1
 promise@0.12.2
 react-fast-refresh@0.2.8
-wolas:sentry@1.0.8
+wolas:sentry@1.0.11
