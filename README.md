@@ -97,6 +97,44 @@ This only applies to `Logger` calls. Events Sentry captures by itself, such as u
 
 Any unhandled exceptions that happen on the client or server should be automatically logged to Sentry. Nothing to configure there.
 
+## Server context (server)
+
+Every server event is tagged with what was running when it was logged, with no extra code:
+
+- `meteor.method` - the name of the Meteor method, or
+- `meteor.publication` - the name of the publication,
+- `user.id` - the id of the user who called it, when someone is logged in.
+
+Events logged outside any method or publication, for example in `Meteor.startup` or a timer, carry none of these and look exactly as before.
+
+## Reporting method errors (server)
+
+Meteor catches an error thrown inside a method and sends it to the client, so Sentry never sees it. Turn on `captureMethodErrors` to report it:
+
+```
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE,
+    captureMethodErrors: true
+});
+```
+
+Each error is reported once, with the same method tag and user as above, then rethrown unchanged, so the client gets exactly what it got before. It works for sync and async methods, registered before or after `Logger.init`.
+
+Errors that are `instanceof Meteor.Error` are not reported. A `Meteor.Error` is the method's intended answer to the client, such as a validation failure or a permission denial, not a crash.
+
+## Client options (client)
+
+```
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE,
+    trackUsers: true,
+    methodBreadcrumbs: true
+});
+```
+
+- `trackUsers` (default `true`) - attaches the signed-in user's email to every event. Needs `accounts-base`.
+- `methodBreadcrumbs` (default `true`) - adds a `meteor.method` breadcrumb named after each `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, so an event shows which methods ran before it. Method arguments are never included, as they can hold passwords. Pass `false` to turn it off, also after an earlier `Logger.init`.
+
 ## Postprocessing (client/server)
 
 If you wish to postprocess an event somehow - for instance log it to the console, you can pass a custom function in initialization.
