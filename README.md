@@ -121,3 +121,11 @@ npm install
 npx playwright install chromium
 npm test
 ```
+
+Dependabot only sees the dev tooling in `package-lock.json`, not the Sentry packages Meteor locks in `.npm/package/npm-shrinkwrap.json`. CI checks those on every push and nightly:
+
+```
+npm run audit:runtime
+```
+
+Advisories that cannot affect this package go in `scripts/runtime-audit-allowlist.json` with a reason and an expiry date.
