@@ -25,6 +25,7 @@ meteor add wolas:sentry
 - **More data collected by default.** `sendDefaultPii` is replaced by `dataCollection`, and leaving it unset now collects user info, cookies, request bodies and database queries. To keep the old, stricter behaviour, pass `dataCollection` to `Logger.init` (see the guide).
 - **Stack traces on messages.** `attachStacktrace` now defaults to `true`, so `Logger.info('...')` and friends carry a stack trace. Issue grouping may change. Pass `attachStacktrace: false` to opt out.
 - **Unhandled server exceptions** are now reported by Sentry's own handler, as `fatal` and unhandled. The server process still exits, as before.
+- **`info`, `debug` and `log` calls no longer reach Sentry by default.** They still run `postprocess`. To keep sending them, pass `levels` to `Logger.init` (see [Choosing which levels reach Sentry](#choosing-which-levels-reach-sentry-clientserver)).
 
 # Usage
 
@@ -67,12 +68,27 @@ each method has following signature:
 
 `function ( event, extra )`
 
-**Returns**: <code>string</code> - sentry event id.
+**Returns**: <code>string</code> \ <code>undefined</code> - sentry event id, or `undefined` when the level is not sent.
 
 | Param | Type | Description |
 | --- | --- | --- |
 | event | <code>Error</code> \ <code>string</code> | event that is being logged |
 | extra | <code>object</code> | any extra params you want to pass |
+
+## Choosing which levels reach Sentry (client/server)
+
+By default only `fatal`, `error`, `warning` and `critical` are sent. Other levels still run `postprocess`, so you can keep them in your console without paying for them in Sentry. A level that is not sent returns `undefined` instead of an event id.
+
+Pass `levels` to choose your own list:
+
+```
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE,
+    levels: ['fatal', 'error', 'warning', 'critical', 'info']
+});
+```
+
+This only applies to `Logger` calls. Events Sentry captures by itself, such as unhandled exceptions, are always sent. Use Sentry's `beforeSend` to filter those.
 
 ## Logging unhandled exceptions (client/server)
 
