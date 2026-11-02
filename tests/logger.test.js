@@ -16,6 +16,7 @@ const postprocessCalls = [];
 
 // Registered before any init, so captureMethodErrors has to wrap them in place.
 const methodsBeforeInit = Meteor.methods;
+const serverMethodsBeforeInit = Meteor.isServer ? Meteor.server.methods : undefined;
 const syncErrorBeforeInit = new Error('sync before init');
 const asyncErrorBeforeInit = new Error('async before init');
 const syncHandlerBeforeInit = function() {
@@ -131,6 +132,7 @@ describe(`wolas:sentry on the ${environment}`, function() {
 
         (Meteor.isServer ? it : it.skip)('leaves methods alone when captureMethodErrors is omitted', function() {
             assert.strictEqual(Meteor.methods, methodsBeforeInit);
+            assert.strictEqual(Meteor.server.methods, serverMethodsBeforeInit);
             assert.strictEqual(Meteor.server.method_handlers['wolas-sentry-test.before.sync'], syncHandlerBeforeInit);
         });
 
@@ -286,6 +288,7 @@ describe(`wolas:sentry on the ${environment}`, function() {
             // Runs under the default levels' init, which turned the option on.
             const syncErrorAfterInit = new Error('sync after init');
             const asyncErrorAfterInit = new Error('async after init');
+            const serverErrorAfterInit = new Error('sync after init on Meteor.server');
             const caller = { name: 'outer', userId: 'user-1', connection: null, setUserId() {}, randomSeed: 'wolas-sentry-test' };
 
             before(function() {
@@ -304,6 +307,12 @@ describe(`wolas:sentry on the ${environment}`, function() {
                     },
                     'wolas-sentry-test.after.throws'(error) {
                         throw error;
+                    }
+                });
+                // The path validated-method and allow/deny register through.
+                Meteor.server.methods({
+                    'wolas-sentry-test.server.sync'() {
+                        throw serverErrorAfterInit;
                     }
                 });
             });
@@ -338,7 +347,8 @@ describe(`wolas:sentry on the ${environment}`, function() {
                 ['a sync throw', 'wolas-sentry-test.before.sync', syncErrorBeforeInit, 'registered before init'],
                 ['an async rejection', 'wolas-sentry-test.before.async', asyncErrorBeforeInit, 'registered before init'],
                 ['a sync throw', 'wolas-sentry-test.after.sync', syncErrorAfterInit, 'registered after init'],
-                ['an async rejection', 'wolas-sentry-test.after.async', asyncErrorAfterInit, 'registered after init']
+                ['an async rejection', 'wolas-sentry-test.after.async', asyncErrorAfterInit, 'registered after init'],
+                ['a sync throw', 'wolas-sentry-test.server.sync', serverErrorAfterInit, 'registered on Meteor.server after init']
             ].forEach(([kind, name, error, registration]) => {
                 it(`reports ${kind} once from a method ${registration} and rethrows the same error`, async function() {
                     const events = await eventsAfter(async () => {
@@ -388,6 +398,7 @@ describe(`wolas:sentry on the ${environment}`, function() {
             it('keeps Meteor\'s own errors for a bad registration', function() {
                 assert.throws(() => Meteor.methods({ 'wolas-sentry-test.after.echo'() {} }), /already defined/);
                 assert.throws(() => Meteor.methods({ 'wolas-sentry-test.after.not-a-function': 42 }), /must be a function/);
+                assert.throws(() => Meteor.server.methods({ 'wolas-sentry-test.server.sync'() {} }), /already defined/);
             });
         });
     });
