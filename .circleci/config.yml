@@ -52,6 +52,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Test the audit logic
+          command: npm run test:audit
+      - run:
           name: Check shipped npm packages for advisories
           command: npm run audit:runtime
 
