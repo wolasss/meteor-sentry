@@ -7,11 +7,24 @@ This package is a wrapper for sentry library. It allows you to simply use latest
 
 This package is MIT Licensed.
 
+# Requirements
+
+- 2.x: Meteor 3.0 or newer (Sentry SDK 11 needs Node 20.19 or newer).
+- Meteor 2: stay on 1.x.
+
 # Installation
 
 ```
 meteor add wolas:sentry
 ```
+
+# Upgrading from 1.x to 2.x
+
+2.x ships Sentry SDK 11. Read the [Sentry migration guide](https://github.com/getsentry/sentry-javascript/blob/develop/MIGRATION.md) for the full list. The changes most likely to affect you:
+
+- **More data collected by default.** `sendDefaultPii` is replaced by `dataCollection`, and leaving it unset now collects user info, cookies, request bodies and database queries. To keep the old, stricter behaviour, pass `dataCollection` to `Logger.init` (see the guide).
+- **Stack traces on messages.** `attachStacktrace` now defaults to `true`, so `Logger.info('...')` and friends carry a stack trace. Issue grouping may change. Pass `attachStacktrace: false` to opt out.
+- **Unhandled server exceptions** are now reported by Sentry's own handler, as `fatal` and unhandled. The server process still exits, as before.
 
 # Usage
 
