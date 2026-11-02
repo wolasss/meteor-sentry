@@ -99,13 +99,13 @@ Any unhandled exceptions that happen on the client or server should be automatic
 
 ## Server context (server)
 
-Every server event is tagged with what was running when it was logged, with no extra code:
+Every `Logger` call on the server, and every error `captureMethodErrors` reports, is tagged with what was running at the time, with no extra code:
 
 - `meteor.method` - the name of the Meteor method, or
 - `meteor.publication` - the name of the publication,
 - `user.id` - the id of the user who called it, when someone is logged in.
 
-Events logged outside any method or publication, for example in `Meteor.startup` or a timer, carry none of these and look exactly as before.
+Events logged outside any method or publication, for example in `Meteor.startup` or a timer, carry none of these and look exactly as before. So do events Sentry captures by itself, such as unhandled exceptions.
 
 ## Reporting method errors (server)
 

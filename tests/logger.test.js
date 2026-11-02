@@ -487,7 +487,51 @@ describe(`wolas:sentry on the ${environment}`, function() {
             assert.strictEqual((await methodBreadcrumbsOnNextEvent()).length, countBefore);
         });
 
-        // Runs before the user tracking describe: its autorun outlives later inits.
+        it('keeps a wrapper the app put on Meteor.apply, and restores it', async function() {
+            const appWrapped = [];
+            const applyBeforeWrapper = Meteor.apply;
+            const appWrapper = function(name, ...rest) {
+                appWrapped.push(name);
+                return applyBeforeWrapper.call(this, name, ...rest);
+            };
+            Meteor.apply = appWrapper;
+
+            try {
+                initLogger();
+                const countBefore = (await methodBreadcrumbsOnNextEvent()).length;
+                Meteor.apply(pingMethods[2], []);
+
+                assert.deepStrictEqual(appWrapped, [pingMethods[2]]);
+                assert.strictEqual((await methodBreadcrumbsOnNextEvent()).length, countBefore + 1);
+
+                initLogger({ methodBreadcrumbs: false });
+                assert.strictEqual(Meteor.apply, appWrapper);
+            } finally {
+                initLogger({ methodBreadcrumbs: false });
+                Meteor.apply = applyBeforeWrapper;
+            }
+        });
+
+        it('stops tracking the user when a later init turns trackUsers off', async function() {
+            const dependency = new Tracker.Dependency();
+            let currentUser = { emails: [{ address: 'tracked@example.com' }] };
+
+            Meteor.user = () => {
+                dependency.depend();
+                return currentUser;
+            };
+            initLogger();
+            initLogger({ trackUsers: false });
+
+            currentUser = { emails: [{ address: 'after-opt-out@example.com' }] };
+            dependency.changed();
+            Tracker.flush();
+
+            const captured = nextEvent();
+            Logger.error('after trackUsers was turned off');
+            assert.strictEqual((await captured).user?.email, undefined);
+        });
+
         it('does not track the user when trackUsers is false', async function() {
             const dependency = new Tracker.Dependency();
             let currentUser = null;
