@@ -7,7 +7,7 @@
         "lib": "lib"
     },
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "TEST_BROWSER_DRIVER=playwright meteor test-packages ./ --driver-package meteortesting:mocha --once --port 3457",
         "release": "semantic-release",
         "prepare": "husky"
     },
@@ -30,6 +30,7 @@
         "@semantic-release/npm": "^13.2.0",
         "@semantic-release/release-notes-generator": "^14.1.1",
         "husky": "^9.1.7",
+        "playwright": "^1.62.1",
         "semantic-release": "^25.0.9"
     },
     "release": {
