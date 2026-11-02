@@ -1,0 +1,51 @@
+version: 2.1
+
+# Keep in step with the Meteor release the package is tested against.
+# The image's Node matches the one Meteor 3.5.4 bundles.
+executors:
+  meteor:
+    docker:
+      - image: cimg/node:24.22.1
+    environment:
+      METEOR_RELEASE: "3.5.4"
+
+jobs:
+  test:
+    executor: meteor
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - meteor-{{ .Environment.METEOR_RELEASE }}-v1
+      - run:
+          name: Install Meteor
+          command: |
+            if [ ! -x "$HOME/.meteor/meteor" ]; then
+              curl -sSL "https://install.meteor.com/?release=$METEOR_RELEASE" | sh
+            fi
+            echo 'export PATH="$HOME/.meteor:$PATH"' >> "$BASH_ENV"
+      - save_cache:
+          key: meteor-{{ .Environment.METEOR_RELEASE }}-v1
+          paths:
+            - ~/.meteor
+      - restore_cache:
+          keys:
+            - npm-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install npm dependencies
+          command: npm ci
+      - save_cache:
+          key: npm-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.npm
+      - run:
+          name: Install Chromium for client tests
+          command: npx playwright install --with-deps chromium
+      - run:
+          name: Run tests
+          command: npm test -- --release "$METEOR_RELEASE"
+
+workflows:
+  test:
+    jobs:
+      - test

@@ -19,3 +19,8 @@ Package.onUse(function(api) {
   api.mainModule('lib/logger_client.js', 'client');
   api.mainModule('lib/logger_server.js', 'server');
 });
+
+Package.onTest(function(api) {
+  api.use(['ecmascript', 'meteortesting:mocha', 'wolas:sentry']);
+  api.mainModule('tests/logger.test.js');
+});

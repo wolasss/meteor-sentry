@@ -92,3 +92,13 @@ Logger.init({
     }
 });
 ```
+
+# Development
+
+Tests run on the server and in headless Chromium:
+
+```
+npm install
+npx playwright install chromium
+npm test
+```
