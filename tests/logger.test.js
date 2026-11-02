@@ -83,14 +83,17 @@ describe(`wolas:sentry on the ${environment}`, function() {
             });
         });
 
-        it('sends an Error as an exception', async function() {
+        it('sends an Error as an exception with its level, extra data and environment tag', async function() {
             const captured = nextEvent();
-            const eventId = Logger.error(new Error('boom'));
+            const eventId = Logger.warning(new Error('boom'), { orderId: 42 });
             const event = await captured;
 
             assert.strictEqual(event.event_id, eventId);
             assert.strictEqual(event.exception.values[0].type, 'Error');
             assert.strictEqual(event.exception.values[0].value, 'boom');
+            assert.strictEqual(event.level, 'warning');
+            assert.deepStrictEqual(event.extra, { orderId: 42 });
+            assert.strictEqual(event.tags.key, environment);
         });
 
         it('calls postprocess with the level, event and extra data', function() {
