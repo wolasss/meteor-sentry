@@ -178,8 +178,8 @@ The type decides the next release: `feat` is a minor release; `fix`, `perf`, `do
 
 ## Releasing
 
-Releases are cut by hand on `master` with `npm run release`, which runs semantic-release. Its config sets `ci: false`, so CI never releases. It needs push access to `master`; there is no GitHub plugin and no token.
+Releases are cut by hand on `master` with `npm run release`, which runs semantic-release. Its config sets `ci: false`, which only lets it run outside CI; it does not stop a CI run. CI does not release because no job in `.circleci/config.yml` runs `npm run release`, so do not add one. It needs push access to `master`; there is no GitHub plugin and no token.
 
 A run reads the commits since the last tag, writes the release notes to `CHANGELOG.md`, bumps `version` in `package.json` (nothing is published to npm, `npmPublish: false`), then commits and tags the result.
 
-`package.js` carries the Atmosphere version, and semantic-release does not touch it. Bump it by hand to match the new tag, then publish to Atmosphere with `meteor publish`.
+`package.js` carries the Atmosphere version, and semantic-release does not touch it or include it in the release commit. Bump it before the release, so the tag carries it: `npx semantic-release --dry-run` prints the next version, set `package.js` to that and commit it, then run `npm run release`, then publish to Atmosphere with `meteor publish`.
