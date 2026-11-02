@@ -4,6 +4,7 @@ import Logger from 'meteor/wolas:sentry';
 
 const SeverityLevels = ['fatal', 'error', 'warning', 'log', 'info', 'debug', 'critical'];
 const DefaultLevels = ['fatal', 'error', 'warning', 'critical'];
+const SentryLevelAliases = { critical: 'fatal' };
 const environment = Meteor.isClient ? 'client' : 'server';
 const dsn = 'https://public@sentry.invalid/1';
 
@@ -43,7 +44,7 @@ async function assertSent(level) {
     assert.strictEqual(typeof eventId, 'string');
     assert.strictEqual(event.event_id, eventId);
     assert.strictEqual(event.message, `${level} message`);
-    assert.strictEqual(event.level, level);
+    assert.strictEqual(event.level, SentryLevelAliases[level] || level);
     assert.deepStrictEqual(event.extra, { orderId: 42 });
     assert.strictEqual(event.tags.key, environment);
 }
@@ -83,14 +84,27 @@ describe(`wolas:sentry on the ${environment}`, function() {
             });
         });
 
-        it('sends an Error as an exception', async function() {
+        it('sends an Error as an exception with its level, extra data and environment tag', async function() {
             const captured = nextEvent();
-            const eventId = Logger.error(new Error('boom'));
+            const eventId = Logger.warning(new Error('boom'), { orderId: 42 });
             const event = await captured;
 
             assert.strictEqual(event.event_id, eventId);
             assert.strictEqual(event.exception.values[0].type, 'Error');
             assert.strictEqual(event.exception.values[0].value, 'boom');
+            assert.strictEqual(event.level, 'warning');
+            assert.deepStrictEqual(event.extra, { orderId: 42 });
+            assert.strictEqual(event.tags.key, environment);
+        });
+
+        it('sends critical as fatal but postprocesses it as critical', async function() {
+            postprocessCalls.length = 0;
+            const captured = nextEvent();
+            Logger.critical('critical as fatal');
+            const event = await captured;
+
+            assert.strictEqual(event.level, 'fatal');
+            assert.strictEqual(postprocessCalls[0].level, 'critical');
         });
 
         it('calls postprocess with the level, event and extra data', function() {

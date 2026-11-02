@@ -26,6 +26,7 @@ meteor add wolas:sentry
 - **Stack traces on messages.** `attachStacktrace` now defaults to `true`, so `Logger.info('...')` and friends carry a stack trace. Issue grouping may change. Pass `attachStacktrace: false` to opt out.
 - **Unhandled server exceptions** are now reported by Sentry's own handler, as `fatal` and unhandled. The server process still exits, as before.
 - **`info`, `debug` and `log` calls no longer reach Sentry by default.** They still run `postprocess`. To keep sending them, pass `levels` to `Logger.init` (see [Choosing which levels reach Sentry](#choosing-which-levels-reach-sentry-clientserver)).
+- **`Logger.critical()` is sent as `fatal`**, because Sentry 11 has no `critical` level. Alert rules that matched `critical` need to match `fatal`.
 
 # Usage
 
@@ -63,6 +64,8 @@ Logger.info()
 Logger.debug()
 Logger.critical()
 ```
+
+Sentry has no `critical` level, so `Logger.critical()` reaches Sentry as `fatal`. `postprocess` still receives `critical`.
 
 each method has following signature:
 
