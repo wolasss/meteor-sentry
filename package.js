@@ -14,6 +14,7 @@ Npm.depends({
 Package.onUse(function(api) {
   api.versionsFrom('3.0');
   api.use('ecmascript');
+  api.use('ddp', 'server');
   api.addFiles('lib/client.js', 'client');
   api.addFiles('lib/server.js', 'server');
   api.mainModule('lib/logger_client.js', 'client');
@@ -21,6 +22,6 @@ Package.onUse(function(api) {
 });
 
 Package.onTest(function(api) {
-  api.use(['ecmascript', 'meteortesting:mocha', 'wolas:sentry']);
+  api.use(['ecmascript', 'ddp', 'meteortesting:mocha', 'wolas:sentry']);
   api.mainModule('tests/logger.test.js');
 });
