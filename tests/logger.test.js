@@ -13,6 +13,7 @@ let pendingEvent;
 const sentEvents = [];
 const postprocessCalls = [];
 let postprocessError;
+let postprocessRejection;
 
 function nextEvent() {
     return new Promise(resolve => {
@@ -36,6 +37,10 @@ function initLogger(options = {}) {
 
             if(postprocessError) {
                 throw postprocessError;
+            }
+
+            if(postprocessRejection) {
+                return Promise.reject(postprocessRejection);
             }
         },
         ...options
@@ -152,6 +157,7 @@ describe(`wolas:sentry on the ${environment}`, function() {
             afterEach(function() {
                 console.error = originalConsoleError;
                 postprocessError = undefined;
+                postprocessRejection = undefined;
             });
 
             it('contains a throwing hook and still returns the event id', async function() {
@@ -166,6 +172,18 @@ describe(`wolas:sentry on the ${environment}`, function() {
                 assert.strictEqual(postprocessCalls.length, 1);
                 assert.strictEqual(consoleErrorCalls.length, 1);
                 assert.ok(consoleErrorCalls[0].includes(postprocessError));
+            });
+
+            it('contains an async hook that rejects', async function() {
+                postprocessRejection = new Error('async hook failed');
+                const captured = nextEvent();
+                const eventId = Logger.error('async hook rejects');
+                await captured;
+                await new Promise(resolve => setTimeout(resolve, 0));
+
+                assert.strictEqual(typeof eventId, 'string');
+                assert.strictEqual(consoleErrorCalls.length, 1);
+                assert.ok(consoleErrorCalls[0].includes(postprocessRejection));
             });
 
             it('keeps calling the hook after it threw', function() {
