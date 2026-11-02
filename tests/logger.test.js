@@ -12,6 +12,7 @@ const dsn = 'https://public@sentry.invalid/1';
 let pendingEvent;
 const sentEvents = [];
 const postprocessCalls = [];
+let postprocessError;
 
 function nextEvent() {
     return new Promise(resolve => {
@@ -32,6 +33,10 @@ function initLogger(options = {}) {
         },
         postprocess(level, event, extra) {
             postprocessCalls.push({ level, event, extra });
+
+            if(postprocessError) {
+                throw postprocessError;
+            }
         },
         ...options
     });
@@ -132,6 +137,60 @@ describe(`wolas:sentry on the ${environment}`, function() {
         SeverityLevels.filter(level => !DefaultLevels.includes(level)).forEach(level => {
             it(`does not send a ${level} message but still postprocesses it`, async function() {
                 await assertNotSent(level, `${level} message`, 'error');
+            });
+        });
+
+        describe('postprocess hook isolation', function() {
+            const originalConsoleError = console.error;
+            let consoleErrorCalls;
+
+            beforeEach(function() {
+                consoleErrorCalls = [];
+                console.error = (...args) => consoleErrorCalls.push(args);
+            });
+
+            afterEach(function() {
+                console.error = originalConsoleError;
+                postprocessError = undefined;
+            });
+
+            it('contains a throwing hook and still returns the event id', async function() {
+                postprocessError = new Error('hook failed');
+                postprocessCalls.length = 0;
+                const captured = nextEvent();
+                const eventId = Logger.error('hook throws', { a: 1 });
+                const event = await captured;
+
+                assert.strictEqual(typeof eventId, 'string');
+                assert.strictEqual(event.message, 'hook throws');
+                assert.strictEqual(postprocessCalls.length, 1);
+                assert.strictEqual(consoleErrorCalls.length, 1);
+                assert.ok(consoleErrorCalls[0].includes(postprocessError));
+            });
+
+            it('keeps calling the hook after it threw', function() {
+                postprocessCalls.length = 0;
+                Logger.warning('after hook threw', { attempt: 2 });
+
+                assert.deepStrictEqual(postprocessCalls, [
+                    { level: 'warning', event: 'after hook threw', extra: { attempt: 2 } }
+                ]);
+                assert.strictEqual(consoleErrorCalls.length, 0);
+            });
+
+            it('rejects a missing or non-object options argument', async function() {
+                assert.throws(() => Logger.init(), { name: 'TypeError', message: /Logger\.init/ });
+                [null, dsn].forEach(value => {
+                    assert.throws(() => Logger.init(value), { name: 'TypeError', message: /Logger\.init/ });
+                });
+
+                postprocessCalls.length = 0;
+                const captured = nextEvent();
+                Logger.error('after rejected init');
+                const event = await captured;
+
+                assert.strictEqual(postprocessCalls[0].event, 'after rejected init');
+                assert.strictEqual(event.message, 'after rejected init');
             });
         });
     });

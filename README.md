@@ -112,6 +112,8 @@ Logger.init({
 });
 ```
 
+A `postprocess` hook that throws never breaks the logging call: the call still returns what it would have returned for that level (the event id, or `undefined` for a level that is not sent), and the hook's error is written to `console.error`.
+
 # Development
 
 Tests run on the server and in headless Chromium:
