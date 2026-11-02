@@ -45,7 +45,28 @@ jobs:
           name: Run tests
           command: npm test -- --release "$METEOR_RELEASE"
 
+  # Dependabot never reads .npm/package/npm-shrinkwrap.json, so this is the only
+  # check on the packages users actually install.
+  audit-runtime-deps:
+    executor: meteor
+    steps:
+      - checkout
+      - run:
+          name: Check shipped npm packages for advisories
+          command: npm run audit:runtime
+
 workflows:
   test:
     jobs:
       - test
+      - audit-runtime-deps
+  # New advisories land without a commit, so re-check daily.
+  nightly-audit:
+    triggers:
+      - schedule:
+          cron: "0 6 * * *"
+          filters:
+            branches:
+              only: master
+    jobs:
+      - audit-runtime-deps

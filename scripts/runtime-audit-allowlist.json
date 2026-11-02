@@ -1,0 +1,14 @@
+[
+    {
+        "id": "GHSA-g3hv-75wg-m249",
+        "package": "minimatch",
+        "reason": "Pulled in by @sentry/node -> @sentry/bundler-plugins -> glob 13, which only the @sentry/node/vite|rollup|webpack build-plugin subpaths load; this package imports the @sentry/node root only. No fix in range: bundler-plugins 11.10.0 pins glob ^13.0.6 and glob 13 pins minimatch ^10. Drop once Sentry moves off glob 13.",
+        "expires": "2027-02-01"
+    },
+    {
+        "id": "GHSA-3g3m-2fjr-6pw4",
+        "package": "glob",
+        "reason": "Pulled in by @sentry/node -> @sentry/bundler-plugins, which only the @sentry/node/vite|rollup|webpack build-plugin subpaths load; this package imports the @sentry/node root only. No fix in range: bundler-plugins 11.10.0 pins glob ^13.0.6, 13.0.6 is the last 13.x, and the fix needs 14.0.2+. Drop once Sentry moves off glob 13.",
+        "expires": "2027-02-01"
+    }
+]
