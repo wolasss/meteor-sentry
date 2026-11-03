@@ -1,4 +1,5 @@
 import { Meteor } from 'meteor/meteor';
+import { Tracker } from 'meteor/tracker';
 import Logger from 'meteor/wolas:sentry';
 
 export const SeverityLevels = ['fatal', 'error', 'warning', 'log', 'info', 'debug', 'critical'];
@@ -166,6 +167,34 @@ export function methodTransactions(transactions) {
 
 export function publicationTransactions(transactions) {
     return transactions.filter(event => event.contexts?.trace?.op === 'meteor.publication');
+}
+
+// A reactive Meteor.user stand-in: accounts-base is not in the test app, and init only
+// tracks users when Meteor.user exists. Client only.
+export function fakeMeteorUser() {
+    const original = Meteor.user;
+    const dependency = new Tracker.Dependency();
+    let currentUser = null;
+
+    Meteor.user = () => {
+        dependency.depend();
+        return currentUser;
+    };
+
+    return {
+        set(user) {
+            currentUser = user;
+            dependency.changed();
+            Tracker.flush();
+        },
+        restore() {
+            if(original === undefined) {
+                delete Meteor.user;
+            } else {
+                Meteor.user = original;
+            }
+        }
+    };
 }
 
 // Called with no argument it clears both failures.

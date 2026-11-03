@@ -182,13 +182,25 @@ Logger.init({
     dsn: YOUR_SENTRY_DSN GOES HERE,
     trackUsers: true,
     methodBreadcrumbs: true,
-    subscriptionBreadcrumbs: true
+    subscriptionBreadcrumbs: true,
+    traceMethods: false
 });
 ```
 
 - `trackUsers` (default `true`) - attaches the signed-in user's email to every event. Needs `accounts-base`.
 - `methodBreadcrumbs` (default `true`) - adds a `meteor.method` breadcrumb named after each `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, so an event shows which methods ran before it. Method arguments are never included, as they can hold passwords. Pass `false` to turn it off, also after an earlier `Logger.init`. Its companion for subscriptions is `subscriptionBreadcrumbs`.
 - `subscriptionBreadcrumbs` (default `true`) - adds a `meteor.subscription` breadcrumb named after each `Meteor.subscribe` and `Meteor.connection.subscribe`, so an event inside a template or hook shows which subscriptions were opened before it. Subscription arguments are never included, as they can hold tokens. Pass `false` to turn it off, also after an earlier `Logger.init`.
+- `traceMethods` (default `false`) - starts a span per `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, beside the breadcrumb. It needs `tracesSampleRate` (or `tracesSampler`): without one, Sentry records no spans and nothing is sent.
+    - The span is named after the method, with op `meteor.method` and the method name as the `meteor.method` tag. Method arguments are never recorded.
+    - `Meteor.callAsync` and `Meteor.applyAsync` end their span when the promise they return settles: the round trip for `callAsync` (and for `applyAsync` with `returnServerResultPromise: true`). The promise is the one Meteor returned, with its `stubPromise` and `serverPromise`.
+    - A call with a callback ends its span when the callback fires, so it covers the round trip.
+    - A call with no callback ends its span when `Meteor.call` or `Meteor.apply` returns. Meteor never hands the caller that result, so the span covers the client-side dispatch only.
+    - Every error marks the span failed, a `Meteor.Error` included: on the client a server crash arrives as a `Meteor.Error` too. A stub that throws synchronously marks it failed as well, and the error reaches you unchanged.
+    - It carries the same user `trackUsers` sets.
+    - Each call is its own transaction, even under the pageload or navigation span of `browserTracingIntegration`.
+    - Pass `false` to turn it off, also after an earlier `Logger.init`. With both `traceMethods` and `methodBreadcrumbs` off, `Meteor.apply` and `Meteor.applyAsync` are restored.
+
+The client transaction and the server transaction for the same call (see `traceMethods` on the server) are not linked. DDP carries no headers, so there is nowhere to put a `sentry-trace` value without changing the method's arguments. An app that needs the link can pass the client's trace id as an explicit method argument and read it on the server itself. This package does not do that.
 
 ## Postprocessing (client/server)
 
