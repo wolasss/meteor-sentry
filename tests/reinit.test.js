@@ -155,9 +155,24 @@ async function assertOnlyInfoEnabled(tag) {
         });
     });
 
+    describe('without a postprocess of its own', function() {
+        it('a later init that leaves postprocess out stops calling the earlier hook', async function() {
+            init();
+            Logger.info('reinit hook: before');
+            assert.strictEqual(hookCalls.length, 1);
+
+            Logger.init({ dsn, beforeSend: () => null });
+            Logger.error('reinit hook: after');
+            Logger.info('reinit hook: after, not sent');
+
+            assert.deepStrictEqual(hookCalls.map(call => call.event), ['reinit hook: before']);
+        });
+    });
+
     describe('with a non-function postprocess', function() {
-        it('ignores it without throwing and keeps logging', async function() {
+        it('ignores it without throwing, keeps logging and stops calling the earlier hook', async function() {
             for(const value of ['not a function', null]) {
+                hookCalls.length = 0;
                 assert.doesNotThrow(() => init({ postprocess: value }));
 
                 let eventId;
@@ -172,6 +187,7 @@ async function assertOnlyInfoEnabled(tag) {
 
                 assert.strictEqual(typeof eventId, 'string');
                 assert.deepStrictEqual(consoleErrorCalls, []);
+                assert.deepStrictEqual(hookCalls, []);
             }
         });
     });

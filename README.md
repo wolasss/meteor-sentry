@@ -157,6 +157,8 @@ Logger.init({
 
 A `postprocess` hook that throws never breaks the logging call: the call still returns what it would have returned for that level (the event id, or `undefined` for a level that is not sent), and the hook's error is written to `console.error`.
 
+The hook belongs to the `Logger.init` that passed it. A later `Logger.init` without `postprocess` runs no hook, the same way it goes back to the default `levels`.
+
 ## Using the Sentry SDK directly (client/server)
 
 For anything the Logger does not wrap, `Logger.Sentry` is the Sentry SDK this package loads and initialises - `@sentry/browser` on the client, `@sentry/node` on the server. It is the same object before and after `Logger.init`, with every top-level SDK function on it (`setTag`, `setContext`, `withScope`, `addBreadcrumb`, `startSpan`, `flush`, `captureMessage`, `getClient`, ...). It is also available as `import { Sentry } from 'meteor/wolas:sentry'`. The client the SDK created is `Logger.Sentry.getClient()`, which is also what `Logger.init` returns.
