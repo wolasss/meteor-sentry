@@ -4,6 +4,8 @@ import Logger from 'meteor/wolas:sentry';
 import {
     initLogger,
     logged,
+    markBreadcrumbs,
+    breadcrumbsAfter,
     nextTransaction,
     sentryClient,
     transactionsDuring,
@@ -63,9 +65,9 @@ import {
         assert.strictEqual(transaction.tags['meteor.method'], name);
     }
 
-    async function methodBreadcrumbCount() {
+    async function methodBreadcrumbsSince(mark) {
         const { event } = await logged('error');
-        return (event.breadcrumbs || []).filter(breadcrumb => breadcrumb.category === 'meteor.method').length;
+        return breadcrumbsAfter(event, mark, 'meteor.method');
     }
 
     [
@@ -227,21 +229,21 @@ import {
 
     it('sends no transaction with breadcrumbs alone, also after a later init turned traceMethods off', async function() {
         initLogger({ methodBreadcrumbs: true });
-        const countBefore = await methodBreadcrumbCount();
+        const mark = markBreadcrumbs();
 
         const transactions = methodTransactions(await transactionsDuring(() => Meteor.callAsync(callAsyncName)));
 
         assert.strictEqual(transactions.length, 0);
-        assert.strictEqual(await methodBreadcrumbCount(), countBefore + 1);
+        assert.deepStrictEqual((await methodBreadcrumbsSince(mark)).map(breadcrumb => breadcrumb.message), [callAsyncName]);
     });
 
     it('sends a transaction and no breadcrumb with traceMethods alone', async function() {
         initLogger({ traceMethods: true, methodBreadcrumbs: false });
-        const countBefore = await methodBreadcrumbCount();
+        const mark = markBreadcrumbs();
 
         await onlyMethodTransaction(() => Meteor.callAsync(callAsyncName));
 
-        assert.strictEqual(await methodBreadcrumbCount(), countBefore);
+        assert.deepStrictEqual(await methodBreadcrumbsSince(mark), []);
     });
 
     it('restores the connection and Meteor when both are off', function() {
