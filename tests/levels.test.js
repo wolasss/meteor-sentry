@@ -119,6 +119,7 @@ describe('with the default levels', function() {
     });
 
     // Nested here so they run under this init, as before the split.
+    require('./sentry_sdk.test.js');
     require('./postprocess.test.js');
     require('./server_context.test.js');
     require('./method_errors.test.js');

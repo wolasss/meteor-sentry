@@ -123,7 +123,7 @@ Logger.init({
 
 Each error is reported once, with the same method tag and user as above, then rethrown unchanged, so the client gets exactly what it got before. It works for sync and async methods, registered before or after `Logger.init`.
 
-Errors that are `instanceof Meteor.Error` are not reported. A `Meteor.Error` is the method's intended answer to the client, such as a validation failure or a permission denial, not a crash.
+Errors that are `instanceof Meteor.Error`, or that have `isClientSafe: true`, are not reported. Meteor sends both to the client as the method's intended answer, such as a validation failure or a permission denial, not a crash.
 
 ## Client options (client)
 
@@ -156,6 +156,30 @@ Logger.init({
 ```
 
 A `postprocess` hook that throws never breaks the logging call: the call still returns what it would have returned for that level (the event id, or `undefined` for a level that is not sent), and the hook's error is written to `console.error`.
+
+## Using the Sentry SDK directly (client/server)
+
+For anything the Logger does not wrap, `Logger.Sentry` is the Sentry SDK this package loads and initialises - `@sentry/browser` on the client, `@sentry/node` on the server. It is the same object before and after `Logger.init`, with every top-level SDK function on it (`setTag`, `setContext`, `withScope`, `addBreadcrumb`, `startSpan`, `flush`, `captureMessage`, `getClient`, ...). It is also available as `import { Sentry } from 'meteor/wolas:sentry'`. The client the SDK created is `Logger.Sentry.getClient()`, which is also what `Logger.init` returns.
+
+On the client:
+
+```
+import Logger from 'meteor/wolas:sentry';
+
+Logger.init({ dsn: YOUR_SENTRY_DSN GOES HERE });
+
+Logger.Sentry.setTag('tenant', tenantId);
+```
+
+On the server, for instance to send pending events before the process exits:
+
+```
+import Logger from 'meteor/wolas:sentry';
+
+await Logger.Sentry.flush(2000);
+```
+
+`Logger.init` must stay the only place `Sentry.init` is called. Do not call `Logger.Sentry.init`, and do not add `@sentry/browser` or `@sentry/node` to your app - that would load a second SDK beside this one.
 
 # Development
 
