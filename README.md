@@ -148,6 +148,7 @@ It needs `tracesSampleRate` (or `tracesSampler`): without one, Sentry records no
 - Sentry's own MongoDB and HTTP spans nest under it, when Sentry's instrumentation is active in your app.
 - Method arguments are never recorded, as they can hold passwords.
 - It works for sync and async methods, registered before or after `Logger.init`. What the method returns or throws is unchanged.
+- A `Meteor.Error` or `isClientSafe` error does not mark the span failed, as it is the method's intended answer. Any other thrown error does.
 
 Pass `false` to turn it off, also after an earlier `Logger.init`.
 
