@@ -9,6 +9,7 @@
     "scripts": {
         "test": "TEST_BROWSER_DRIVER=playwright meteor test-packages ./ --driver-package meteortesting:mocha --once --port 3457",
         "audit:runtime": "node scripts/audit-runtime-deps.mjs",
+        "test:audit": "node --test 'scripts/**/*.test.mjs'",
         "release": "semantic-release",
         "prepare": "husky"
     },

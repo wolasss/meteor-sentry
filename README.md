@@ -49,7 +49,7 @@ Logger.init({
 ```
 import Logger from 'meteor/wolas:sentry';
 
-Logger.info('Something happened', {
+Logger.warning('Something happened', {
     userId: getUserId()
 });
 ```
@@ -60,6 +60,7 @@ Logger has methods for all Sentry severity levels, such as:
 Logger.error()
 Logger.fatal()
 Logger.warning()
+Logger.log()
 Logger.info()
 Logger.debug()
 Logger.critical()
@@ -77,6 +78,8 @@ each method has following signature:
 | --- | --- | --- |
 | event | <code>Error</code> \ <code>string</code> | event that is being logged |
 | extra | <code>object</code> | any extra params you want to pass |
+
+Every event a `Logger` method sends carries a `key` tag, `client` or `server`, naming the side that logged it; filter on `key` in Sentry to separate the two. `Logger.init` throws if `levels` is not an array or names a level other than `fatal`, `error`, `warning`, `log`, `info`, `debug` or `critical`, so a bad list fails at init instead of silently dropping events.
 
 ## Choosing which levels reach Sentry (client/server)
 
@@ -120,7 +123,7 @@ Logger.init({
 
 Each error is reported once, with the same method tag and user as above, then rethrown unchanged, so the client gets exactly what it got before. It works for sync and async methods, registered before or after `Logger.init`. A later `Logger.init` without `captureMethodErrors: true` turns it off again.
 
-Errors that are `instanceof Meteor.Error` are not reported. A `Meteor.Error` is the method's intended answer to the client, such as a validation failure or a permission denial, not a crash.
+Errors that are `instanceof Meteor.Error`, or that have `isClientSafe: true`, are not reported. Meteor sends both to the client as the method's intended answer, such as a validation failure or a permission denial, not a crash.
 
 ## Client options (client)
 
@@ -128,12 +131,14 @@ Errors that are `instanceof Meteor.Error` are not reported. A `Meteor.Error` is 
 Logger.init({
     dsn: YOUR_SENTRY_DSN GOES HERE,
     trackUsers: true,
-    methodBreadcrumbs: true
+    methodBreadcrumbs: true,
+    subscriptionBreadcrumbs: true
 });
 ```
 
 - `trackUsers` (default `true`) - attaches the signed-in user's email to every event. Needs `accounts-base`.
-- `methodBreadcrumbs` (default `true`) - adds a `meteor.method` breadcrumb named after each `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, so an event shows which methods ran before it. Method arguments are never included, as they can hold passwords. Pass `false` to turn it off, also after an earlier `Logger.init`.
+- `methodBreadcrumbs` (default `true`) - adds a `meteor.method` breadcrumb named after each `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, so an event shows which methods ran before it. Method arguments are never included, as they can hold passwords. Pass `false` to turn it off, also after an earlier `Logger.init`. Its companion for subscriptions is `subscriptionBreadcrumbs`.
+- `subscriptionBreadcrumbs` (default `true`) - adds a `meteor.subscription` breadcrumb named after each `Meteor.subscribe` and `Meteor.connection.subscribe`, so an event inside a template or hook shows which subscriptions were opened before it. Subscription arguments are never included, as they can hold tokens. Pass `false` to turn it off, also after an earlier `Logger.init`.
 
 ## Postprocessing (client/server)
 
@@ -152,6 +157,30 @@ Logger.init({
 
 A `postprocess` hook that throws never breaks the logging call: the call still returns what it would have returned for that level (the event id, or `undefined` for a level that is not sent), and the hook's error is written to `console.error`.
 
+## Using the Sentry SDK directly (client/server)
+
+For anything the Logger does not wrap, `Logger.Sentry` is the Sentry SDK this package loads and initialises - `@sentry/browser` on the client, `@sentry/node` on the server. It is the same object before and after `Logger.init`, with every top-level SDK function on it (`setTag`, `setContext`, `withScope`, `addBreadcrumb`, `startSpan`, `flush`, `captureMessage`, `getClient`, ...). It is also available as `import { Sentry } from 'meteor/wolas:sentry'`. The client the SDK created is `Logger.Sentry.getClient()`, which is also what `Logger.init` returns.
+
+On the client:
+
+```
+import Logger from 'meteor/wolas:sentry';
+
+Logger.init({ dsn: YOUR_SENTRY_DSN GOES HERE });
+
+Logger.Sentry.setTag('tenant', tenantId);
+```
+
+On the server, for instance to send pending events before the process exits:
+
+```
+import Logger from 'meteor/wolas:sentry';
+
+await Logger.Sentry.flush(2000);
+```
+
+`Logger.init` must stay the only place `Sentry.init` is called. Do not call `Logger.Sentry.init`, and do not add `@sentry/browser` or `@sentry/node` to your app - that would load a second SDK beside this one.
+
 # Development
 
 Tests run on the server and in headless Chromium:
@@ -169,3 +198,17 @@ npm run audit:runtime
 ```
 
 Advisories that cannot affect this package go in `scripts/runtime-audit-allowlist.json` with a reason and an expiry date.
+
+## Commits
+
+Commit messages follow the conventional format, `type(scope): subject`, for example `fix(client): clear the Sentry user on logout`. `npm install` installs a husky `commit-msg` hook that runs commitlint with `@commitlint/config-conventional`, and it rejects any other message. The accepted types are `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style` and `test`.
+
+The type decides the next release: `feat` is a minor release; `fix`, `perf`, `docs`, `chore`, `refactor` and a revert are a patch; `build`, `ci`, `style` and `test` release nothing on their own. A `BREAKING CHANGE:` footer makes a major release whatever the type. The `!` shorthand (`feat!:`) passes commitlint but the release tooling does not read it, so a breaking commit needs the footer as well.
+
+## Releasing
+
+Releases are cut by hand on `master` with `npm run release`, which runs semantic-release. Its config sets `ci: false`, which only lets it run outside CI; it does not stop a CI run. CI does not release because no job in `.circleci/config.yml` runs `npm run release`, so do not add one. It needs push access to `master`; there is no GitHub plugin and no token.
+
+A run reads the commits since the last tag, writes the release notes to `CHANGELOG.md`, bumps `version` in `package.json` (nothing is published to npm, `npmPublish: false`), then commits and tags the result.
+
+`package.js` carries the Atmosphere version, and semantic-release does not touch it or include it in the release commit. Bump it before the release, so the tag carries it: `npx semantic-release --dry-run` prints the next version, set `package.js` to that and commit it, then run `npm run release`, then publish to Atmosphere with `meteor publish`.
