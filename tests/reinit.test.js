@@ -106,6 +106,13 @@ async function assertOnlyInfoEnabled(tag) {
 
             assert.throws(() => Logger.init(null), TypeError);
             await assertOnlyInfoEnabled('null');
+
+            // Sentry runs an integrations function inside its own init, so this one fails past validation.
+            const integrations = () => {
+                throw new Error('integrations rejected');
+            };
+            assert.throws(() => Logger.init({ dsn, levels: ['warning'], integrations }), /integrations rejected/);
+            await assertOnlyInfoEnabled('sentry-rejected');
         });
 
         // Last in its block on purpose: it re-inits with the defaults.
