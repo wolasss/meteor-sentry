@@ -496,6 +496,25 @@ describe(`wolas:sentry on the ${environment}`, function() {
         it('does not send an unlisted level, even for an Error', async function() {
             await assertNotSent('error', new Error('boom'), 'info');
         });
+
+        (Meteor.isServer ? it : it.skip)('stops reporting method errors when a later init leaves captureMethodErrors off', async function() {
+            // A fresh error, or Sentry's dedupe integration would hide a report.
+            const error = new Error('thrown with capture off');
+            Meteor.methods({
+                'wolas-sentry-test.capture-off'() {
+                    throw error;
+                }
+            });
+
+            sentEvents.length = 0;
+            await assert.rejects(Meteor.callAsync('wolas-sentry-test.capture-off'), thrown => thrown === error);
+
+            const captured = nextEvent();
+            Logger.info('sentinel after a method with capture off');
+            await captured;
+
+            assert.deepStrictEqual(sentEvents.map(sentEvent => sentEvent.message), ['sentinel after a method with capture off']);
+        });
     });
 
     (Meteor.isClient ? describe : describe.skip)('method breadcrumbs and client options', function() {

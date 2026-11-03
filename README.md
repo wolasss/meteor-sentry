@@ -118,7 +118,7 @@ Logger.init({
 });
 ```
 
-Each error is reported once, with the same method tag and user as above, then rethrown unchanged, so the client gets exactly what it got before. It works for sync and async methods, registered before or after `Logger.init`.
+Each error is reported once, with the same method tag and user as above, then rethrown unchanged, so the client gets exactly what it got before. It works for sync and async methods, registered before or after `Logger.init`. A later `Logger.init` without `captureMethodErrors: true` turns it off again.
 
 Errors that are `instanceof Meteor.Error` are not reported. A `Meteor.Error` is the method's intended answer to the client, such as a validation failure or a permission denial, not a crash.
 
