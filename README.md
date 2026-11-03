@@ -131,12 +131,14 @@ Errors that are `instanceof Meteor.Error`, or that have `isClientSafe: true`, ar
 Logger.init({
     dsn: YOUR_SENTRY_DSN GOES HERE,
     trackUsers: true,
-    methodBreadcrumbs: true
+    methodBreadcrumbs: true,
+    subscriptionBreadcrumbs: true
 });
 ```
 
 - `trackUsers` (default `true`) - attaches the signed-in user's email to every event. Needs `accounts-base`.
-- `methodBreadcrumbs` (default `true`) - adds a `meteor.method` breadcrumb named after each `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, so an event shows which methods ran before it. Method arguments are never included, as they can hold passwords. Pass `false` to turn it off, also after an earlier `Logger.init`.
+- `methodBreadcrumbs` (default `true`) - adds a `meteor.method` breadcrumb named after each `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, so an event shows which methods ran before it. Method arguments are never included, as they can hold passwords. Pass `false` to turn it off, also after an earlier `Logger.init`. Its companion for subscriptions is `subscriptionBreadcrumbs`.
+- `subscriptionBreadcrumbs` (default `true`) - adds a `meteor.subscription` breadcrumb named after each `Meteor.subscribe` and `Meteor.connection.subscribe`, so an event inside a template or hook shows which subscriptions were opened before it. Subscription arguments are never included, as they can hold tokens. Pass `false` to turn it off, also after an earlier `Logger.init`.
 
 ## Postprocessing (client/server)
 

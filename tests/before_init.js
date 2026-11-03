@@ -7,6 +7,9 @@ export const syncErrorBeforeInit = new Error('sync before init');
 export const asyncErrorBeforeInit = new Error('async before init');
 export const connectionApplyBeforeInit = Meteor.isClient ? Meteor.connection.apply : undefined;
 export const connectionApplyAsyncBeforeInit = Meteor.isClient ? Meteor.connection.applyAsync : undefined;
+export const connectionSubscribeBeforeInit = Meteor.isClient ? Meteor.connection.subscribe : undefined;
+export const subscribeBeforeInit = Meteor.isClient ? Meteor.subscribe : undefined;
+export const testPublication = 'wolas-sentry-test.subscription';
 export const pingMethods = ['call', 'callAsync', 'apply', 'applyAsync'].map(alias => `wolas-sentry-test.ping.${alias}`);
 export const syncHandlerBeforeInit = function() {
     throw syncErrorBeforeInit;
@@ -22,5 +25,8 @@ if(Meteor.isServer) {
             throw new Meteor.Error('denied');
         },
         ...Object.fromEntries(pingMethods.map(name => [name, () => {}]))
+    });
+    Meteor.publish(testPublication, function() {
+        this.ready();
     });
 }
