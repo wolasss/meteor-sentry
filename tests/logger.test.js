@@ -753,6 +753,33 @@ describe(`wolas:sentry on the ${environment}`, function() {
             }
         });
 
+        it('keeps a wrapper put on Meteor.subscribe after init when turned off, and stops adding breadcrumbs', async function() {
+            const appWrapped = [];
+
+            initLogger();
+            const subscribeBeforeWrapper = Meteor.subscribe;
+            const appWrapper = function(name, ...rest) {
+                appWrapped.push(name);
+                return subscribeBeforeWrapper.call(this, name, ...rest);
+            };
+            Meteor.subscribe = appWrapper;
+
+            try {
+                initLogger({ subscriptionBreadcrumbs: false });
+
+                assert.strictEqual(Meteor.subscribe, appWrapper);
+                assert.strictEqual(Meteor.connection.subscribe, connectionSubscribeBeforeInit);
+
+                const countBefore = (await breadcrumbsOnNextEvent('meteor.subscription')).length;
+                subscribe(testPublication);
+
+                assert.deepStrictEqual(appWrapped, [testPublication]);
+                assert.strictEqual((await breadcrumbsOnNextEvent('meteor.subscription')).length, countBefore);
+            } finally {
+                Meteor.subscribe = subscribeBeforeInit;
+            }
+        });
+
         it('installs nothing when the connection has no subscribe', function() {
             initLogger({ subscriptionBreadcrumbs: false });
             Meteor.connection.subscribe = undefined;
