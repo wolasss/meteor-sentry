@@ -94,6 +94,26 @@ export async function logged(level, event = mint(level), extra) {
     return { eventId, event: capturedEvent };
 }
 
+// Sentry keeps only the last maxBreadcrumbs across inits, so counting a category before and
+// after an action comes out short once that buffer is full. Count from a mark instead.
+export function markBreadcrumbs() {
+    const message = mint('breadcrumb mark');
+    Logger.Sentry.addBreadcrumb({ category: 'test.mark', message });
+    return message;
+}
+
+// The breadcrumbs of category the event carries after the mark.
+export function breadcrumbsAfter(event, mark, category) {
+    const breadcrumbs = event.breadcrumbs || [];
+    const index = breadcrumbs.findIndex(breadcrumb => breadcrumb.category === 'test.mark' && breadcrumb.message === mark);
+
+    if(index === -1) {
+        throw new Error(`the breadcrumb mark "${mark}" is not in the event: it was dropped or never added`);
+    }
+
+    return breadcrumbs.slice(index + 1).filter(breadcrumb => breadcrumb.category === category);
+}
+
 // The events Sentry captured while action ran. A sentinel logged after it proves nothing
 // else was still queued.
 export async function eventsDuring(action, sentinelLevel = 'error') {
