@@ -8,6 +8,7 @@ export const environment = Meteor.isClient ? 'client' : 'server';
 export const dsn = 'https://public@sentry.invalid/1';
 
 let pendingEvent;
+let client;
 const sentEvents = [];
 export const postprocessCalls = [];
 let postprocessError;
@@ -34,7 +35,7 @@ export function nextEvent() {
 export function initLogger(options = {}) {
     messagesSinceInit.clear();
 
-    return Logger.init({
+    client = Logger.init({
         dsn,
         beforeSend(event) {
             sentEvents.push(event);
@@ -57,6 +58,8 @@ export function initLogger(options = {}) {
         },
         ...options
     });
+
+    return client;
 }
 
 // Logs through Logger[level] and waits for the event Sentry captured for it.
@@ -91,6 +94,13 @@ export async function logged(level, event = mint(level), extra) {
 export async function eventsDuring(action, sentinelLevel = 'error') {
     const start = sentEvents.length;
     await action();
+
+    // An exception event is still being processed (its source context is read async)
+    // when a message logged after it is done, so flush before the sentinel.
+    if(!await client.flush(2000)) {
+        throw new Error('Sentry was still processing an event after 2s');
+    }
+
     const { event: sentinel } = await logged(sentinelLevel, mint('sentinel'));
 
     if(sentEvents[sentEvents.length - 1] !== sentinel) {

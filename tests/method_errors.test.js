@@ -28,6 +28,9 @@ import {
             'wolas-sentry-test.after.denied'() {
                 throw new Meteor.Error('denied');
             },
+            'wolas-sentry-test.after.client-safe'() {
+                throw Object.assign(new Error('client safe'), { isClientSafe: true, error: 'denied' });
+            },
             'wolas-sentry-test.after.echo'(...args) {
                 return { name: this.name, userId: this.userId, args };
             },
@@ -74,10 +77,10 @@ import {
         });
     });
 
-    ['wolas-sentry-test.before.denied', 'wolas-sentry-test.after.denied'].forEach(name => {
-        it(`does not report a Meteor.Error from ${name}`, async function() {
+    ['wolas-sentry-test.before.denied', 'wolas-sentry-test.after.denied', 'wolas-sentry-test.after.client-safe'].forEach(name => {
+        it(`does not report a client-safe error from ${name}`, async function() {
             const events = await eventsDuring(() =>
-                assert.rejects(callAsCaller(name), thrown => thrown instanceof Meteor.Error && thrown.error === 'denied'));
+                assert.rejects(callAsCaller(name), thrown => thrown.isClientSafe && thrown.error === 'denied'));
 
             assert.deepStrictEqual(events, []);
         });
