@@ -192,8 +192,8 @@ Logger.init({
 - `subscriptionBreadcrumbs` (default `true`) - adds a `meteor.subscription` breadcrumb named after each `Meteor.subscribe` and `Meteor.connection.subscribe`, so an event inside a template or hook shows which subscriptions were opened before it. Subscription arguments are never included, as they can hold tokens. Pass `false` to turn it off, also after an earlier `Logger.init`.
 - `traceMethods` (default `false`) - starts a span per `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, beside the breadcrumb. It needs `tracesSampleRate` (or `tracesSampler`): without one, Sentry records no spans and nothing is sent.
     - The span is named after the method, with op `meteor.method` and the method name as the `meteor.method` tag. Method arguments are never recorded.
-    - `Meteor.callAsync` and `Meteor.applyAsync` end their span when the promise they return settles: the round trip for `callAsync` (and for `applyAsync` with `returnServerResultPromise: true`). The promise is the one Meteor returned, with its `stubPromise` and `serverPromise`.
-    - A call with a callback ends its span when the callback fires, so it covers the round trip.
+    - `Meteor.callAsync` and `Meteor.applyAsync` without a callback end their span when the promise they return settles: the round trip for `callAsync` (and for `applyAsync` with `returnServerResultPromise: true`). The promise is the one Meteor returned, with its `stubPromise` and `serverPromise`.
+    - A call with a callback, `Meteor.applyAsync` included, ends its span when the callback fires, so it covers the round trip.
     - A call with no callback ends its span when `Meteor.call` or `Meteor.apply` returns. Meteor never hands the caller that result, so the span covers the client-side dispatch only.
     - Every error marks the span failed, a `Meteor.Error` included: on the client a server crash arrives as a `Meteor.Error` too. A stub that throws synchronously marks it failed as well, and the error reaches you unchanged.
     - It carries the same user `trackUsers` sets.

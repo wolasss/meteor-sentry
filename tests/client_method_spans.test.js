@@ -190,6 +190,21 @@ import {
         assert.strictEqual(transaction.contexts.trace.status, 'internal_error');
     });
 
+    it('ends an applyAsync with a callback when the callback fires, failed when it gets an error', async function() {
+        let outcome;
+        let resolved;
+        const transaction = await onlyMethodTransaction(async () => {
+            outcome = await new Promise(resolve => {
+                resolved = Meteor.applyAsync(deniedMethod, [], {}, error => resolve({ error }));
+            });
+            await resolved;
+        });
+
+        assert.strictEqual(outcome.error.error, 'denied');
+        assertMethodTransaction(transaction, deniedMethod);
+        assert.strictEqual(transaction.contexts.trace.status, 'internal_error');
+    });
+
     it('marks a stub that throws failed and throws the same value', async function() {
         const transaction = await onlyMethodTransaction(() => {
             assert.throws(() => Meteor.apply(throwingStub, [], { throwStubExceptions: true }), thrown => thrown === stubError);
