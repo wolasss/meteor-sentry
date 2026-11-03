@@ -2,7 +2,7 @@ import { Meteor } from 'meteor/meteor';
 import { Tracker } from 'meteor/tracker';
 import { DDP } from 'meteor/ddp';
 import assert from 'assert';
-import Logger from 'meteor/wolas:sentry';
+import Logger, { Sentry } from 'meteor/wolas:sentry';
 
 const SeverityLevels = ['fatal', 'error', 'warning', 'log', 'info', 'debug', 'critical'];
 const DefaultLevels = ['fatal', 'error', 'warning', 'critical'];
@@ -174,6 +174,52 @@ describe(`wolas:sentry on the ${environment}`, function() {
 
             ['captureMethodErrors', 'postprocess', 'levels'].forEach(name => {
                 assert.strictEqual(name in options, false, name);
+            });
+        });
+
+        describe('the Sentry SDK as Logger.Sentry', function() {
+            it('is the SDK the Logger sends through', async function() {
+                // A scoped tag, because the shipped SDK keeps a tag cleared with undefined
+                // as `tenant: undefined` on every later event, breaking their exact tags.
+                let captured = nextEvent();
+
+                Logger.Sentry.withScope(scope => {
+                    scope.setTag('tenant', 'acme');
+                    Logger.error('tagged through Logger.Sentry');
+                });
+
+                let event = await captured;
+
+                assert.strictEqual(event.tags.tenant, 'acme');
+                assert.strictEqual(event.tags.key, environment);
+
+                // Later tests assert exact tags, so a leaked tag must fail here instead.
+                captured = nextEvent();
+                Logger.error('untagged after Logger.Sentry');
+                event = await captured;
+
+                assert.strictEqual('tenant' in event.tags, false);
+            });
+
+            it('returns the client Logger.init configured', function() {
+                assert.strictEqual(Logger.Sentry.getClient(), initResult);
+            });
+
+            it('is the named Sentry export', function() {
+                assert.strictEqual(Sentry, Logger.Sentry);
+                assert.strictEqual(typeof Logger.Sentry.captureException, 'function');
+            });
+
+            it('cannot be replaced', function() {
+                const before = Logger.Sentry;
+
+                try {
+                    Logger.Sentry = {};
+                } catch(error) {
+                    assert.strictEqual(error.name, 'TypeError');
+                }
+
+                assert.strictEqual(Logger.Sentry, before);
             });
         });
 
