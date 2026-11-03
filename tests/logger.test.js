@@ -10,6 +10,7 @@ describe(`wolas:sentry on the ${environment}`, function() {
     // Loaded in this order so each block runs under the init that precedes it.
     require('./levels.test.js');
     require('./method_breadcrumbs.test.js');
+    require('./client_method_spans.test.js');
     require('./subscription_breadcrumbs.test.js');
     require('./user_tracking.test.js');
 
