@@ -14,7 +14,11 @@ import {
 import {
     methodsBeforeInit,
     serverMethodsBeforeInit,
-    syncHandlerBeforeInit
+    syncHandlerBeforeInit,
+    testPublication,
+    publishBeforeInit,
+    serverPublishBeforeInit,
+    publicationHandlerBeforeInit
 } from './before_init.js';
 
 async function assertSent(level) {
@@ -80,6 +84,12 @@ describe('with every level enabled', function() {
         assert.strictEqual(Meteor.server.method_handlers['wolas-sentry-test.before.sync'], syncHandlerBeforeInit);
     });
 
+    (Meteor.isServer ? it : it.skip)('leaves publications alone when tracePublications is omitted', function() {
+        assert.strictEqual(Meteor.publish, publishBeforeInit);
+        assert.strictEqual(Meteor.server.publish, serverPublishBeforeInit);
+        assert.strictEqual(Meteor.server.publish_handlers[testPublication], publicationHandlerBeforeInit);
+    });
+
     it('calls postprocess with the level, event and extra data', function() {
         Logger.warning('postprocessed', { attempt: 2 });
 
@@ -93,7 +103,7 @@ describe('with the default levels', function() {
     let initResult;
 
     before(function() {
-        initResult = initLogger(Meteor.isServer ? { captureMethodErrors: true, traceMethods: true } : {});
+        initResult = initLogger(Meteor.isServer ? { captureMethodErrors: true, traceMethods: true, tracePublications: true } : {});
     });
 
     it('returns the Sentry client without the package options in it', function() {
@@ -101,7 +111,7 @@ describe('with the default levels', function() {
 
         const options = initResult.getOptions();
 
-        ['captureMethodErrors', 'traceMethods', 'postprocess', 'levels'].forEach(name => {
+        ['captureMethodErrors', 'traceMethods', 'tracePublications', 'postprocess', 'levels'].forEach(name => {
             assert.strictEqual(name in options, false, name);
         });
     });
@@ -124,11 +134,12 @@ describe('with the default levels', function() {
     require('./server_context.test.js');
     require('./method_errors.test.js');
     require('./method_spans.test.js');
+    require('./publication_spans.test.js');
 });
 
 describe('with custom levels', function() {
     before(function() {
-        // On the server it also turns traceMethods off after the default levels' init turned it on.
+        // On the server it also turns traceMethods and tracePublications off after the default levels' init turned them on.
         initLogger(Meteor.isServer ? { levels: ['info'], captureMethodErrors: true } : { levels: ['info'] });
     });
 
@@ -141,6 +152,7 @@ describe('with custom levels', function() {
     });
 
     require('./method_tracing_off.test.js');
+    require('./publication_tracing_off.test.js');
 });
 
 (Meteor.isServer ? describe : describe.skip)('with method capture off and tracing on', function() {

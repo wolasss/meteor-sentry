@@ -152,6 +152,29 @@ It needs `tracesSampleRate` (or `tracesSampler`): without one, Sentry records no
 
 Pass `false` to turn it off, also after an earlier `Logger.init`.
 
+## Tracing publications (server)
+
+Turn on `tracePublications` to get a span per publication handler run:
+
+```
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE,
+    tracesSampleRate: 0.1,
+    tracePublications: true
+});
+```
+
+Like `traceMethods`, it needs `tracesSampleRate` (or `tracesSampler`).
+
+- The span covers the handler run only, until it returns or its promise settles. It does not cover the subscription's lifetime.
+- The span is named after the publication, with op `meteor.publication`. It carries the publication name as `meteor.publication` and the subscriber as `user.id`. A subscription with no logged-in user carries no user. As with methods, `meteor.publication` is a span attribute under span streaming, and also a tag with `traceLifecycle: 'static'`.
+- A universal publication (`Meteor.publish(null, ...)`) has no name. Its span is named `meteor.publication (universal)`, carries the attribute `meteor.publication.universal: true` and no `meteor.publication` tag, like errors logged inside one.
+- Each run is its own transaction, even when another span is active. Sentry's own MongoDB and HTTP spans nest under it, when Sentry's instrumentation is active in your app.
+- Subscription arguments are never recorded, as they can hold tokens.
+- It works for publications registered before or after `Logger.init`, by name, as an object or universal. What the handler returns or throws is unchanged. Any thrown error marks the span failed, a `Meteor.Error` included.
+
+Pass `false` to turn it off, also after an earlier `Logger.init`.
+
 ## Client options (client)
 
 ```
