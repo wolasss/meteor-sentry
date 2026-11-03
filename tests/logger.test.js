@@ -383,6 +383,9 @@ describe(`wolas:sentry on the ${environment}`, function() {
                     'wolas-sentry-test.after.denied'() {
                         throw new Meteor.Error('denied');
                     },
+                    'wolas-sentry-test.after.client-safe'() {
+                        throw Object.assign(new Error('client safe'), { isClientSafe: true, error: 'denied' });
+                    },
                     'wolas-sentry-test.after.echo'(...args) {
                         return { name: this.name, userId: this.userId, args };
                     },
@@ -406,9 +409,12 @@ describe(`wolas:sentry on the ${environment}`, function() {
 
             // A sentinel sent after the method proves nothing else was queued.
             // Each is unique, or Sentry's dedupe integration drops repeats.
+            // An exception event is still being processed (its source context is
+            // read async) when a message sent after it is done, so flush first.
             async function eventsAfter(action) {
                 sentEvents.length = 0;
                 await action();
+                assert.strictEqual(await initResult.flush(2000), true);
                 const captured = nextEvent();
                 sentinels += 1;
                 Logger.error(`sentinel ${sentinels} after a method`);
@@ -443,10 +449,10 @@ describe(`wolas:sentry on the ${environment}`, function() {
                 });
             });
 
-            ['wolas-sentry-test.before.denied', 'wolas-sentry-test.after.denied'].forEach(name => {
-                it(`does not report a Meteor.Error from ${name}`, async function() {
+            ['wolas-sentry-test.before.denied', 'wolas-sentry-test.after.denied', 'wolas-sentry-test.after.client-safe'].forEach(name => {
+                it(`does not report a client-safe error from ${name}`, async function() {
                     const events = await eventsAfter(() =>
-                        assert.rejects(callAsCaller(name), thrown => thrown instanceof Meteor.Error && thrown.error === 'denied'));
+                        assert.rejects(callAsCaller(name), thrown => thrown.isClientSafe && thrown.error === 'denied'));
 
                     assert.deepStrictEqual(events, []);
                 });
