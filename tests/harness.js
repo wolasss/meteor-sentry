@@ -62,6 +62,11 @@ export function initLogger(options = {}) {
     return client;
 }
 
+// The Sentry client the latest initLogger configured.
+export function sentryClient() {
+    return client;
+}
+
 // Logs through Logger[level] and waits for the event Sentry captured for it.
 // Without an event it logs a message no other test uses.
 export async function logged(level, event = mint(level), extra) {
