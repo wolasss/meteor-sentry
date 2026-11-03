@@ -1,5 +1,6 @@
 import { Meteor } from 'meteor/meteor';
 import { DDP } from 'meteor/ddp';
+import Logger from 'meteor/wolas:sentry';
 import assert from 'assert';
 import {
     nextTransaction,
@@ -177,6 +178,18 @@ import { testPublication } from './before_init.js';
         assert.strictEqual(ours[0].contexts.trace.data['meteor.publication.universal'], true);
         assert.strictEqual(ours[0].tags?.['meteor.publication'], undefined);
         assert.strictEqual(seen.self, sub);
+    });
+
+    it('leaves a publication tag on the surrounding scope off a universal publication\'s transaction', async function() {
+        const sub = subscription({ userId: 'universal-tagged-user' });
+        const transactions = publicationTransactions(await transactionsDuring(() => Logger.Sentry.withScope(scope => {
+            scope.setTag('meteor.publication', 'wolas-sentry-test.pub.outer');
+            return runAs(universalHandler, sub);
+        })));
+        const ours = transactions.filter(event => event.transaction === universalName && event.user?.id === 'universal-tagged-user');
+
+        assert.strictEqual(ours.length, 1);
+        assert.strictEqual(ours[0].tags?.['meteor.publication'], undefined);
     });
 
     it('sends a transaction for a real subscription over DDP', async function() {
