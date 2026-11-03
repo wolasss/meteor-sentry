@@ -2,7 +2,9 @@ import { Meteor } from 'meteor/meteor';
 import assert from 'assert';
 import {
     initLogger,
-    logged
+    logged,
+    markBreadcrumbs,
+    breadcrumbsAfter
 } from './harness.js';
 import {
     testPublication,
@@ -13,9 +15,9 @@ import {
 (Meteor.isClient ? describe : describe.skip)('subscription breadcrumbs', function() {
     const handles = [];
 
-    async function subscriptionBreadcrumbsOnNextEvent() {
+    async function subscriptionBreadcrumbsSince(mark) {
         const { event } = await logged('error');
-        return (event.breadcrumbs || []).filter(breadcrumb => breadcrumb.category === 'meteor.subscription');
+        return breadcrumbsAfter(event, mark, 'meteor.subscription');
     }
 
     // A dropped callback fails the test instead of hanging it.
@@ -42,16 +44,16 @@ import {
     });
 
     it('adds a breadcrumb named after each subscription, without its arguments', async function() {
-        const countBefore = (await subscriptionBreadcrumbsOnNextEvent()).length;
+        const mark = markBreadcrumbs();
 
         subscribe(testPublication, 'secret');
         const connectionHandle = Meteor.connection.subscribe(testPublication, 'secret');
         handles.push(connectionHandle);
 
-        const breadcrumbs = await subscriptionBreadcrumbsOnNextEvent();
+        const breadcrumbs = await subscriptionBreadcrumbsSince(mark);
 
-        assert.strictEqual(breadcrumbs.length, countBefore + 2);
-        breadcrumbs.slice(-2).forEach(breadcrumb => {
+        assert.strictEqual(breadcrumbs.length, 2);
+        breadcrumbs.forEach(breadcrumb => {
             assert.strictEqual(breadcrumb.message, testPublication);
             assert.strictEqual(breadcrumb.level, 'info');
             assert.strictEqual(breadcrumb.data, undefined);
@@ -86,12 +88,12 @@ import {
     });
 
     it('adds one breadcrumb per subscription after a second init', async function() {
-        const countBefore = (await subscriptionBreadcrumbsOnNextEvent()).length;
-
         initLogger();
+        const mark = markBreadcrumbs();
         subscribe(testPublication);
 
-        assert.strictEqual((await subscriptionBreadcrumbsOnNextEvent()).length, countBefore + 1);
+        const breadcrumbs = await subscriptionBreadcrumbsSince(mark);
+        assert.deepStrictEqual(breadcrumbs.map(breadcrumb => breadcrumb.message), [testPublication]);
     });
 
     it('restores the connection when subscriptionBreadcrumbs is false, and keeps the option out of Sentry', async function() {
@@ -101,10 +103,10 @@ import {
         assert.strictEqual(Meteor.connection.subscribe, connectionSubscribeBeforeInit);
         assert.strictEqual(Meteor.subscribe, subscribeBeforeInit);
 
-        const countBefore = (await subscriptionBreadcrumbsOnNextEvent()).length;
+        const mark = markBreadcrumbs();
         subscribe(testPublication);
 
-        assert.strictEqual((await subscriptionBreadcrumbsOnNextEvent()).length, countBefore);
+        assert.deepStrictEqual(await subscriptionBreadcrumbsSince(mark), []);
     });
 
     it('keeps a wrapper the app put on Meteor.subscribe, and restores it', async function() {
@@ -118,11 +120,12 @@ import {
 
         try {
             initLogger();
-            const countBefore = (await subscriptionBreadcrumbsOnNextEvent()).length;
+            const mark = markBreadcrumbs();
             subscribe(testPublication);
 
             assert.deepStrictEqual(appWrapped, [testPublication]);
-            assert.strictEqual((await subscriptionBreadcrumbsOnNextEvent()).length, countBefore + 1);
+            const breadcrumbs = await subscriptionBreadcrumbsSince(mark);
+            assert.deepStrictEqual(breadcrumbs.map(breadcrumb => breadcrumb.message), [testPublication]);
 
             initLogger({ subscriptionBreadcrumbs: false });
             assert.strictEqual(Meteor.subscribe, appWrapper);
@@ -149,11 +152,11 @@ import {
             assert.strictEqual(Meteor.subscribe, appWrapper);
             assert.strictEqual(Meteor.connection.subscribe, connectionSubscribeBeforeInit);
 
-            const countBefore = (await subscriptionBreadcrumbsOnNextEvent()).length;
+            const mark = markBreadcrumbs();
             subscribe(testPublication);
 
             assert.deepStrictEqual(appWrapped, [testPublication]);
-            assert.strictEqual((await subscriptionBreadcrumbsOnNextEvent()).length, countBefore);
+            assert.deepStrictEqual(await subscriptionBreadcrumbsSince(mark), []);
         } finally {
             Meteor.subscribe = subscribeBeforeInit;
         }
