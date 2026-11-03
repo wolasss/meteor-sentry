@@ -8,8 +8,10 @@ export const environment = Meteor.isClient ? 'client' : 'server';
 export const dsn = 'https://public@sentry.invalid/1';
 
 let pendingEvent;
+let pendingTransaction;
 let client;
 const sentEvents = [];
+const sentTransactions = [];
 export const postprocessCalls = [];
 let postprocessError;
 let postprocessRejection;
@@ -32,11 +34,33 @@ export function nextEvent() {
     });
 }
 
+// For a transaction, such as a traced method's. Resolves with the first one the predicate accepts.
+export function nextTransaction(predicate = () => true) {
+    return new Promise(resolve => {
+        pendingTransaction = { predicate, resolve };
+    });
+}
+
 export function initLogger(options = {}) {
     messagesSinceInit.clear();
 
     client = Logger.init({
         dsn,
+        // Samples every span, so a missing transaction proves the switch, not the sampler.
+        tracesSampleRate: 1,
+        // Sentry 11 streams spans by default, which skips beforeSendTransaction and sends them
+        // over the network. Static keeps one transaction event per root span, recorded here.
+        traceLifecycle: 'static',
+        beforeSendTransaction(event) {
+            sentTransactions.push(event);
+
+            if(pendingTransaction && pendingTransaction.predicate(event)) {
+                pendingTransaction.resolve(event);
+                pendingTransaction = undefined;
+            }
+
+            return null;
+        },
         beforeSend(event) {
             sentEvents.push(event);
             pendingEvent?.(event);
@@ -115,6 +139,31 @@ export async function eventsDuring(action, sentinelLevel = 'error') {
     return sentEvents.slice(start, -1);
 }
 
+// The transactions Sentry finished while action ran. A sentinel transaction ended after it
+// proves nothing else was still queued.
+export async function transactionsDuring(action) {
+    const start = sentTransactions.length;
+    await action();
+
+    if(!await client.flush(2000)) {
+        throw new Error('Sentry was still processing an event after 2s');
+    }
+
+    const name = mint('sentinel transaction');
+    const sentinel = nextTransaction(event => event.transaction === name);
+    Logger.Sentry.startSpan({ name, forceTransaction: true }, () => {});
+    await sentinel;
+
+    const end = sentTransactions.findIndex((event, index) => index >= start && event.transaction === name);
+
+    return sentTransactions.slice(start, end);
+}
+
+// Sentry's HTTP instrumentation can add transactions of its own beside a method's.
+export function methodTransactions(transactions) {
+    return transactions.filter(event => event.contexts?.trace?.op === 'meteor.method');
+}
+
 // Called with no argument it clears both failures.
 export function setPostprocessFailure({ error, rejection } = {}) {
     postprocessError = error;
@@ -123,5 +172,6 @@ export function setPostprocessFailure({ error, rejection } = {}) {
 
 export function reset() {
     sentEvents.length = 0;
+    sentTransactions.length = 0;
     postprocessCalls.length = 0;
 }

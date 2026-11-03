@@ -74,7 +74,7 @@ describe('with every level enabled', function() {
         assert.strictEqual(postprocessCalls[0].level, 'critical');
     });
 
-    (Meteor.isServer ? it : it.skip)('leaves methods alone when captureMethodErrors is omitted', function() {
+    (Meteor.isServer ? it : it.skip)('leaves methods alone when captureMethodErrors and traceMethods are omitted', function() {
         assert.strictEqual(Meteor.methods, methodsBeforeInit);
         assert.strictEqual(Meteor.server.methods, serverMethodsBeforeInit);
         assert.strictEqual(Meteor.server.method_handlers['wolas-sentry-test.before.sync'], syncHandlerBeforeInit);
@@ -93,7 +93,7 @@ describe('with the default levels', function() {
     let initResult;
 
     before(function() {
-        initResult = initLogger(Meteor.isServer ? { captureMethodErrors: true } : {});
+        initResult = initLogger(Meteor.isServer ? { captureMethodErrors: true, traceMethods: true } : {});
     });
 
     it('returns the Sentry client without the package options in it', function() {
@@ -101,7 +101,7 @@ describe('with the default levels', function() {
 
         const options = initResult.getOptions();
 
-        ['captureMethodErrors', 'postprocess', 'levels'].forEach(name => {
+        ['captureMethodErrors', 'traceMethods', 'postprocess', 'levels'].forEach(name => {
             assert.strictEqual(name in options, false, name);
         });
     });
@@ -123,11 +123,13 @@ describe('with the default levels', function() {
     require('./postprocess.test.js');
     require('./server_context.test.js');
     require('./method_errors.test.js');
+    require('./method_spans.test.js');
 });
 
 describe('with custom levels', function() {
     before(function() {
-        initLogger({ levels: ['info'] });
+        // On the server it also turns traceMethods off after the default levels' init turned it on.
+        initLogger(Meteor.isServer ? { levels: ['info'], captureMethodErrors: true } : { levels: ['info'] });
     });
 
     it('sends a listed level', async function() {
@@ -137,4 +139,22 @@ describe('with custom levels', function() {
     it('does not send an unlisted level, even for an Error', async function() {
         await assertNotSent('error', new Error('boom'), 'info');
     });
+
+    require('./method_tracing_off.test.js');
+});
+
+(Meteor.isServer ? describe : describe.skip)('with method capture off and tracing on', function() {
+    before(function() {
+        initLogger({
+            captureMethodErrors: false,
+            traceMethods: true,
+            // Client reports and these integrations add process listeners on every init; one more
+            // full init on the server trips Node's listener limit (see server_context.test.js).
+            sendClientReports: false,
+            integrations: defaults => defaults.filter(integration =>
+                !['OnUncaughtException', 'OnUnhandledRejection', 'ProcessSession'].includes(integration.name))
+        });
+    });
+
+    require('./method_capture_off.test.js');
 });
