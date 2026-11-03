@@ -23,6 +23,9 @@ const syncErrorBeforeInit = new Error('sync before init');
 const asyncErrorBeforeInit = new Error('async before init');
 const connectionApplyBeforeInit = Meteor.isClient ? Meteor.connection.apply : undefined;
 const connectionApplyAsyncBeforeInit = Meteor.isClient ? Meteor.connection.applyAsync : undefined;
+const connectionSubscribeBeforeInit = Meteor.isClient ? Meteor.connection.subscribe : undefined;
+const subscribeBeforeInit = Meteor.isClient ? Meteor.subscribe : undefined;
+const testPublication = 'wolas-sentry-test.subscription';
 const pingMethods = ['call', 'callAsync', 'apply', 'applyAsync'].map(alias => `wolas-sentry-test.ping.${alias}`);
 const syncHandlerBeforeInit = function() {
     throw syncErrorBeforeInit;
@@ -38,6 +41,9 @@ if(Meteor.isServer) {
             throw new Meteor.Error('denied');
         },
         ...Object.fromEntries(pingMethods.map(name => [name, () => {}]))
+    });
+    Meteor.publish(testPublication, function() {
+        this.ready();
     });
 }
 
@@ -71,6 +77,26 @@ function initLogger(options = {}) {
         },
         ...options
     });
+}
+
+// Each message is unique, or Sentry's dedupe integration drops repeats.
+let breadcrumbChecks = 0;
+
+async function breadcrumbsOnNextEvent(category) {
+    const captured = nextEvent();
+    breadcrumbChecks += 1;
+    Logger.error(`breadcrumbs check ${breadcrumbChecks}`);
+    const event = await captured;
+    return (event.breadcrumbs || []).filter(breadcrumb => breadcrumb.category === category);
+}
+
+// A dropped callback fails the test instead of hanging it.
+function withinFiveSeconds(promise, what) {
+    let timer;
+    const timeout = new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${what} never happened`)), 5000);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function assertSent(level) {
@@ -500,16 +526,6 @@ describe(`wolas:sentry on the ${environment}`, function() {
 
     (Meteor.isClient ? describe : describe.skip)('method breadcrumbs and client options', function() {
         const originalUser = Meteor.user;
-        let messages = 0;
-
-        // Each message is unique, or Sentry's dedupe integration drops repeats.
-        async function methodBreadcrumbsOnNextEvent() {
-            const captured = nextEvent();
-            messages += 1;
-            Logger.error(`breadcrumbs check ${messages}`);
-            const event = await captured;
-            return (event.breadcrumbs || []).filter(breadcrumb => breadcrumb.category === 'meteor.method');
-        }
 
         before(function() {
             initLogger();
@@ -531,7 +547,7 @@ describe(`wolas:sentry on the ${environment}`, function() {
             Meteor.apply(applyName, ['secret']);
             await Meteor.applyAsync(applyAsyncName, ['secret']);
 
-            const breadcrumbs = (await methodBreadcrumbsOnNextEvent()).slice(-4);
+            const breadcrumbs = (await breadcrumbsOnNextEvent('meteor.method')).slice(-4);
 
             assert.deepStrictEqual(breadcrumbs.map(breadcrumb => breadcrumb.message), pingMethods);
             breadcrumbs.forEach(breadcrumb => {
@@ -541,12 +557,12 @@ describe(`wolas:sentry on the ${environment}`, function() {
         });
 
         it('adds one breadcrumb per call after a second init', async function() {
-            const countBefore = (await methodBreadcrumbsOnNextEvent()).length;
+            const countBefore = (await breadcrumbsOnNextEvent('meteor.method')).length;
 
             initLogger();
             Meteor.call(pingMethods[0]);
 
-            assert.strictEqual((await methodBreadcrumbsOnNextEvent()).length, countBefore + 1);
+            assert.strictEqual((await breadcrumbsOnNextEvent('meteor.method')).length, countBefore + 1);
         });
 
         it('restores the connection when methodBreadcrumbs is false, and keeps the options out of Sentry', async function() {
@@ -558,10 +574,10 @@ describe(`wolas:sentry on the ${environment}`, function() {
             assert.strictEqual(Meteor.connection.apply, connectionApplyBeforeInit);
             assert.strictEqual(Meteor.connection.applyAsync, connectionApplyAsyncBeforeInit);
 
-            const countBefore = (await methodBreadcrumbsOnNextEvent()).length;
+            const countBefore = (await breadcrumbsOnNextEvent('meteor.method')).length;
             Meteor.call(pingMethods[0]);
 
-            assert.strictEqual((await methodBreadcrumbsOnNextEvent()).length, countBefore);
+            assert.strictEqual((await breadcrumbsOnNextEvent('meteor.method')).length, countBefore);
         });
 
         it('keeps a wrapper the app put on Meteor.apply, and restores it', async function() {
@@ -575,11 +591,11 @@ describe(`wolas:sentry on the ${environment}`, function() {
 
             try {
                 initLogger();
-                const countBefore = (await methodBreadcrumbsOnNextEvent()).length;
+                const countBefore = (await breadcrumbsOnNextEvent('meteor.method')).length;
                 Meteor.apply(pingMethods[2], []);
 
                 assert.deepStrictEqual(appWrapped, [pingMethods[2]]);
-                assert.strictEqual((await methodBreadcrumbsOnNextEvent()).length, countBefore + 1);
+                assert.strictEqual((await breadcrumbsOnNextEvent('meteor.method')).length, countBefore + 1);
 
                 initLogger({ methodBreadcrumbs: false });
                 assert.strictEqual(Meteor.apply, appWrapper);
@@ -626,6 +642,131 @@ describe(`wolas:sentry on the ${environment}`, function() {
             const captured = nextEvent();
             Logger.error('with trackUsers off');
             assert.strictEqual((await captured).user?.email, undefined);
+        });
+    });
+
+    (Meteor.isClient ? describe : describe.skip)('subscription breadcrumbs', function() {
+        const handles = [];
+
+        function subscribe(...args) {
+            const handle = Meteor.subscribe(...args);
+            handles.push(handle);
+            return handle;
+        }
+
+        before(function() {
+            initLogger();
+        });
+
+        afterEach(function() {
+            handles.splice(0).forEach(handle => handle.stop());
+        });
+
+        it('adds a breadcrumb named after each subscription, without its arguments', async function() {
+            const countBefore = (await breadcrumbsOnNextEvent('meteor.subscription')).length;
+
+            subscribe(testPublication, 'secret');
+            const connectionHandle = Meteor.connection.subscribe(testPublication, 'secret');
+            handles.push(connectionHandle);
+
+            const breadcrumbs = await breadcrumbsOnNextEvent('meteor.subscription');
+
+            assert.strictEqual(breadcrumbs.length, countBefore + 2);
+            breadcrumbs.slice(-2).forEach(breadcrumb => {
+                assert.strictEqual(breadcrumb.message, testPublication);
+                assert.strictEqual(breadcrumb.level, 'info');
+                assert.strictEqual(breadcrumb.data, undefined);
+            });
+            handles.forEach(handle => {
+                assert.strictEqual(typeof handle.ready, 'function');
+                assert.strictEqual(typeof handle.stop, 'function');
+            });
+        });
+
+        it('passes the callbacks through unchanged', async function() {
+            let onReady;
+            let onStop;
+            const ready = new Promise(resolve => {
+                onReady = resolve;
+            });
+            const stopped = new Promise(resolve => {
+                onStop = resolve;
+            });
+            const handle = subscribe(testPublication, 'secret', { onReady, onStop });
+
+            await withinFiveSeconds(ready, 'onReady');
+            handle.stop();
+            await withinFiveSeconds(stopped, 'onStop');
+
+            let onReadyShorthand;
+            const readyShorthand = new Promise(resolve => {
+                onReadyShorthand = resolve;
+            });
+            subscribe(testPublication, 'secret', onReadyShorthand);
+            await withinFiveSeconds(readyShorthand, 'the onReady shorthand');
+        });
+
+        it('adds one breadcrumb per subscription after a second init', async function() {
+            const countBefore = (await breadcrumbsOnNextEvent('meteor.subscription')).length;
+
+            initLogger();
+            subscribe(testPublication);
+
+            assert.strictEqual((await breadcrumbsOnNextEvent('meteor.subscription')).length, countBefore + 1);
+        });
+
+        it('restores the connection when subscriptionBreadcrumbs is false, and keeps the option out of Sentry', async function() {
+            const options = initLogger({ subscriptionBreadcrumbs: false }).getOptions();
+
+            assert.strictEqual('subscriptionBreadcrumbs' in options, false);
+            assert.strictEqual(Meteor.connection.subscribe, connectionSubscribeBeforeInit);
+            assert.strictEqual(Meteor.subscribe, subscribeBeforeInit);
+
+            const countBefore = (await breadcrumbsOnNextEvent('meteor.subscription')).length;
+            subscribe(testPublication);
+
+            assert.strictEqual((await breadcrumbsOnNextEvent('meteor.subscription')).length, countBefore);
+        });
+
+        it('keeps a wrapper the app put on Meteor.subscribe, and restores it', async function() {
+            const appWrapped = [];
+            const subscribeBeforeWrapper = Meteor.subscribe;
+            const appWrapper = function(name, ...rest) {
+                appWrapped.push(name);
+                return subscribeBeforeWrapper.call(this, name, ...rest);
+            };
+            Meteor.subscribe = appWrapper;
+
+            try {
+                initLogger();
+                const countBefore = (await breadcrumbsOnNextEvent('meteor.subscription')).length;
+                subscribe(testPublication);
+
+                assert.deepStrictEqual(appWrapped, [testPublication]);
+                assert.strictEqual((await breadcrumbsOnNextEvent('meteor.subscription')).length, countBefore + 1);
+
+                initLogger({ subscriptionBreadcrumbs: false });
+                assert.strictEqual(Meteor.subscribe, appWrapper);
+            } finally {
+                initLogger({ subscriptionBreadcrumbs: false });
+                Meteor.subscribe = subscribeBeforeWrapper;
+            }
+        });
+
+        it('installs nothing when the connection has no subscribe', function() {
+            initLogger({ subscriptionBreadcrumbs: false });
+            Meteor.connection.subscribe = undefined;
+
+            try {
+                assert.doesNotThrow(() => initLogger());
+                assert.strictEqual(Meteor.subscribe, subscribeBeforeInit);
+            } finally {
+                Meteor.connection.subscribe = connectionSubscribeBeforeInit;
+            }
+
+            initLogger({ subscriptionBreadcrumbs: false });
+            assert.strictEqual(Meteor.connection.subscribe, connectionSubscribeBeforeInit);
+            assert.strictEqual(Meteor.subscribe, subscribeBeforeInit);
         });
     });
 
