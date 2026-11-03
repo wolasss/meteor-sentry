@@ -44,6 +44,20 @@ Logger.init({
 });
 ```
 
+## Release (client/server)
+
+Every event carries a `release`, so Sentry can tell which deploy an issue came from. The first one found wins:
+
+1. the `release` option passed to `Logger.init`
+2. on the server, the `SENTRY_RELEASE` environment variable; on either side, a release a Sentry bundler plugin injected
+3. `Meteor.gitCommitHash`, the commit the app was built from
+
+When none is set, events go out without a release. `Meteor.gitCommitHash` is undefined when the app isn't built from a git checkout.
+
+```
+Logger.init({ dsn, release: 'my-app@1.4.0' });
+```
+
 ## Logging events (client/server)
 
 ```
