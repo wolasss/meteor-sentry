@@ -49,7 +49,7 @@ Logger.init({
 ```
 import Logger from 'meteor/wolas:sentry';
 
-Logger.info('Something happened', {
+Logger.warning('Something happened', {
     userId: getUserId()
 });
 ```
@@ -60,6 +60,7 @@ Logger has methods for all Sentry severity levels, such as:
 Logger.error()
 Logger.fatal()
 Logger.warning()
+Logger.log()
 Logger.info()
 Logger.debug()
 Logger.critical()
@@ -77,6 +78,8 @@ each method has following signature:
 | --- | --- | --- |
 | event | <code>Error</code> \ <code>string</code> | event that is being logged |
 | extra | <code>object</code> | any extra params you want to pass |
+
+Every event a `Logger` method sends carries a `key` tag, `client` or `server`, naming the side that logged it; filter on `key` in Sentry to separate the two. `Logger.init` throws if `levels` is not an array or names a level other than `fatal`, `error`, `warning`, `log`, `info`, `debug` or `critical`, so a bad list fails at init instead of silently dropping events.
 
 ## Choosing which levels reach Sentry (client/server)
 
@@ -169,3 +172,17 @@ npm run audit:runtime
 ```
 
 Advisories that cannot affect this package go in `scripts/runtime-audit-allowlist.json` with a reason and an expiry date.
+
+## Commits
+
+Commit messages follow the conventional format, `type(scope): subject`, for example `fix(client): clear the Sentry user on logout`. `npm install` installs a husky `commit-msg` hook that runs commitlint with `@commitlint/config-conventional`, and it rejects any other message. The accepted types are `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style` and `test`.
+
+The type decides the next release: `feat` is a minor release; `fix`, `perf`, `docs`, `chore`, `refactor` and a revert are a patch; `build`, `ci`, `style` and `test` release nothing on their own. A `BREAKING CHANGE:` footer makes a major release whatever the type. The `!` shorthand (`feat!:`) passes commitlint but the release tooling does not read it, so a breaking commit needs the footer as well.
+
+## Releasing
+
+Releases are cut by hand on `master` with `npm run release`, which runs semantic-release. Its config sets `ci: false`, which only lets it run outside CI; it does not stop a CI run. CI does not release because no job in `.circleci/config.yml` runs `npm run release`, so do not add one. It needs push access to `master`; there is no GitHub plugin and no token.
+
+A run reads the commits since the last tag, writes the release notes to `CHANGELOG.md`, bumps `version` in `package.json` (nothing is published to npm, `npmPublish: false`), then commits and tags the result.
+
+`package.js` carries the Atmosphere version, and semantic-release does not touch it or include it in the release commit. Bump it before the release, so the tag carries it: `npx semantic-release --dry-run` prints the next version, set `package.js` to that and commit it, then run `npm run release`, then publish to Atmosphere with `meteor publish`.
