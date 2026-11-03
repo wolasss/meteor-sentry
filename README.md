@@ -49,7 +49,7 @@ Logger.init({
 ```
 import Logger from 'meteor/wolas:sentry';
 
-Logger.info('Something happened', {
+Logger.warning('Something happened', {
     userId: getUserId()
 });
 ```
@@ -60,6 +60,7 @@ Logger has methods for all Sentry severity levels, such as:
 Logger.error()
 Logger.fatal()
 Logger.warning()
+Logger.log()
 Logger.info()
 Logger.debug()
 Logger.critical()
@@ -77,6 +78,8 @@ each method has following signature:
 | --- | --- | --- |
 | event | <code>Error</code> \ <code>string</code> | event that is being logged |
 | extra | <code>object</code> | any extra params you want to pass |
+
+Every event a `Logger` method sends carries a `key` tag, `client` or `server`, naming the side that logged it; filter on `key` in Sentry to separate the two. `Logger.init` throws if `levels` is not an array or names a level other than `fatal`, `error`, `warning`, `log`, `info`, `debug` or `critical`, so a bad list fails at init instead of silently dropping events.
 
 ## Choosing which levels reach Sentry (client/server)
 
