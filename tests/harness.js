@@ -164,6 +164,10 @@ export function methodTransactions(transactions) {
     return transactions.filter(event => event.contexts?.trace?.op === 'meteor.method');
 }
 
+export function publicationTransactions(transactions) {
+    return transactions.filter(event => event.contexts?.trace?.op === 'meteor.publication');
+}
+
 // Called with no argument it clears both failures.
 export function setPostprocessFailure({ error, rejection } = {}) {
     postprocessError = error;
