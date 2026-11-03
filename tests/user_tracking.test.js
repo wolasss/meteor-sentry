@@ -63,4 +63,13 @@ import {
         setCurrentUser({ services: { github: {} } });
         assert.strictEqual((await userOnNextEvent('logged in as an OAuth-only user'))?.email, undefined);
     });
+
+    it('keeps tracking the user when trackUsers is passed as undefined', async function() {
+        const options = initLogger({ trackUsers: undefined }).getOptions();
+
+        assert.strictEqual(Object.prototype.hasOwnProperty.call(options, 'trackUsers'), false);
+
+        setCurrentUser({ emails: [{ address: 'carol@example.com' }] });
+        assert.strictEqual((await userOnNextEvent('logged in as carol')).email, 'carol@example.com');
+    });
 });
