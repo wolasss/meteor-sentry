@@ -125,6 +125,33 @@ Each error is reported once, with the same method tag and user as above, then re
 
 Errors that are `instanceof Meteor.Error`, or that have `isClientSafe: true`, are not reported. Meteor sends both to the client as the method's intended answer, such as a validation failure or a permission denial, not a crash.
 
+Pass `false` to turn it off, also after an earlier `Logger.init`.
+
+## Tracing methods (server)
+
+Sentry's own instrumentation sees HTTP and database calls, but not Meteor methods. Turn on `traceMethods` to get a span per method run:
+
+```
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE,
+    tracesSampleRate: 0.1,
+    traceMethods: true
+});
+```
+
+It needs `tracesSampleRate` (or `tracesSampler`): without one, Sentry records no spans and nothing is sent.
+
+- The span is named after the method, with op `meteor.method`.
+- It carries the method name as `meteor.method` and the caller as `user.id`, like the errors above. A call with no logged-in user carries no user.
+- With Sentry's default span streaming, `meteor.method` is a span attribute. With `traceLifecycle: 'static'` it is also a tag on the transaction.
+- Each method run is its own transaction, even when another span is active, such as the HTTP request a DDP connection rides on.
+- Sentry's own MongoDB and HTTP spans nest under it, when Sentry's instrumentation is active in your app.
+- Method arguments are never recorded, as they can hold passwords.
+- It works for sync and async methods, registered before or after `Logger.init`. What the method returns or throws is unchanged.
+- A `Meteor.Error` or `isClientSafe` error does not mark the span failed, as it is the method's intended answer. Any other thrown error does.
+
+Pass `false` to turn it off, also after an earlier `Logger.init`.
+
 ## Client options (client)
 
 ```
