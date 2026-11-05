@@ -1,0 +1,12 @@
+# Meteor publishes every file it finds in a package folder, including a
+# top-level node_modules. The release steps run npm install here, so without
+# this list the dev tooling (semantic-release, npm, playwright, ...) ships to
+# every app; 2.0.0 carried 226 MB of it. Runtime npm packages come from
+# Npm.depends via .npm/package, which this file does not affect.
+#
+# Only lib/ and tests/ are visible. tests/ stays because the test entry point
+# requires its sibling test files. A new top-level folder the package loads
+# must be added here.
+/*
+!/lib/
+!/tests/
