@@ -288,3 +288,5 @@ Releases are cut by hand on `master` with `npm run release`, which runs semantic
 A run reads the commits since the last tag, writes the release notes to `CHANGELOG.md`, bumps `version` in `package.json` (nothing is published to npm, `npmPublish: false`), then commits and tags the result.
 
 `package.js` carries the Atmosphere version, and semantic-release does not touch it or include it in the release commit. Bump it before the release, so the tag carries it: `npx semantic-release --dry-run` prints the next version, set `package.js` to that and commit it, then run `npm run release`, then publish to Atmosphere with `meteor publish`.
+
+`meteor publish` is safe to run beside the dev `node_modules`, because `.meteorignore` hides everything except `lib/` and `tests/`. A new top-level folder the package loads must be added to it.
