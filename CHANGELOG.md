@@ -1,3 +1,25 @@
+# [3.0.0](https://github.com/wolasss/meteor-sentry/compare/v2.1.0...v3.0.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* bump after invalid publish ([dc57687](https://github.com/wolasss/meteor-sentry/commit/dc57687e115759ccb56a62e6d3d73b84b6fbab5f))
+
+
+### Performance Improvements
+
+* **client:** ship a trimmed Sentry SDK build instead of @sentry/browser whole ([#51](https://github.com/wolasss/meteor-sentry/issues/51)) ([3be15d4](https://github.com/wolasss/meteor-sentry/commit/3be15d4772e5f0b42a634d5b02b35d5ddfff77cb))
+
+
+### BREAKING CHANGES
+
+* **client:** on the client, Logger.Sentry no longer carries session replay, the
+feedback widget or browser profiling: replayIntegration, replayCanvasIntegration,
+getReplay, feedbackIntegration, feedbackAsyncIntegration, feedbackSyncIntegration,
+getFeedback, sendFeedback, browserProfilingIntegration and uiProfiler are gone.
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [2.1.0](https://github.com/wolasss/meteor-sentry/compare/v2.0.0...v2.1.0) (2026-11-05)
 
 
