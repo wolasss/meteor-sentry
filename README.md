@@ -237,6 +237,8 @@ A `postprocess` hook that throws never breaks the logging call: the call still r
 
 For anything the Logger does not wrap, `Logger.Sentry` is the Sentry SDK this package loads and initialises - `@sentry/browser` on the client, `@sentry/node` on the server. It is the same object before and after `Logger.init`, with every top-level SDK function on it (`setTag`, `setContext`, `withScope`, `addBreadcrumb`, `startSpan`, `flush`, `captureMessage`, `getClient`, ...). It is also available as `import { Sentry } from 'meteor/wolas:sentry'`. The client the SDK created is `Logger.Sentry.getClient()`, which is also what `Logger.init` returns.
 
+On the client, session replay, the feedback widget and browser profiling are left out since 3.0: `replayIntegration`, `replayCanvasIntegration`, `getReplay`, `feedbackIntegration`, `feedbackAsyncIntegration`, `feedbackSyncIntegration`, `getFeedback`, `sendFeedback`, `browserProfilingIntegration` and `uiProfiler` are not on `Logger.Sentry`. Meteor bundles a package's npm modules whole, without tree shaking, so the full `@sentry/browser` 11 put 1.1 MiB into every app's initial page load. The package now ships its own build of the SDK with only the code the remaining functions use, and those three features were half of it.
+
 On the client:
 
 ```
@@ -267,7 +269,15 @@ npx playwright install chromium
 npm test
 ```
 
-Dependabot only sees the dev tooling in `package-lock.json`, not the Sentry packages Meteor locks in `.npm/package/npm-shrinkwrap.json`. CI checks those on every push and nightly:
+The client's SDK, `lib/vendor/sentry-browser.js`, is generated from the `@sentry/browser` in `package.json` devDependencies. That version must equal `@sentry/node` in `package.js`, and the build fails otherwise. After changing either, or the exports left out in `scripts/build-client-sdk.mjs`, rebuild and commit the result:
+
+```
+npm run build:client-sdk
+```
+
+CI rebuilds it and fails when the result differs from the committed file.
+
+Dependabot only sees the dev tooling in `package-lock.json`, not the Sentry packages Meteor locks in `.npm/package/npm-shrinkwrap.json` or the ones bundled into the client SDK, which the build lists in `scripts/client-sdk-packages.json`. CI checks both on every push and nightly:
 
 ```
 npm run audit:runtime

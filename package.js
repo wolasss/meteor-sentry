@@ -6,8 +6,9 @@ Package.describe({
   documentation: 'README.md'
 });
 
+// The client's SDK is bundled into lib/vendor from the @sentry/browser in
+// package.json devDependencies, which must stay at this version.
 Npm.depends({
-  '@sentry/browser': '11.10.0',
   '@sentry/node': '11.10.0'
 });
 

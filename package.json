@@ -11,7 +11,8 @@
         "audit:runtime": "node scripts/audit-runtime-deps.mjs",
         "test:audit": "node --test 'scripts/**/*.test.mjs'",
         "release": "semantic-release",
-        "prepare": "husky"
+        "prepare": "husky",
+        "build:client-sdk": "node scripts/build-client-sdk.mjs"
     },
     "repository": {
         "type": "git",
@@ -31,6 +32,8 @@
         "@semantic-release/git": "^11.0.1",
         "@semantic-release/npm": "^13.2.0",
         "@semantic-release/release-notes-generator": "^14.1.1",
+        "@sentry/browser": "11.10.0",
+        "esbuild": "0.28.2",
         "husky": "^9.1.7",
         "playwright": "1.64.1",
         "semantic-release": "^25.0.9"
