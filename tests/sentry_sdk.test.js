@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { Meteor } from 'meteor/meteor';
 import Logger, { Sentry } from 'meteor/wolas:sentry';
 import {
     environment,
@@ -38,6 +39,15 @@ describe('the Sentry SDK as Logger.Sentry', function() {
     it('is the named Sentry export', function() {
         assert.strictEqual(Sentry, Logger.Sentry);
         assert.strictEqual(typeof Logger.Sentry.captureException, 'function');
+    });
+
+    // Pins the 3.0 size cut: the bundled client SDK leaves these features out.
+    (Meteor.isClient ? it : it.skip)('has no session replay, feedback widget or browser profiling on the client', function() {
+        const leftOut = ['replayIntegration', 'replayCanvasIntegration', 'feedbackIntegration', 'sendFeedback', 'browserProfilingIntegration']
+            .filter(name => name in Logger.Sentry);
+
+        assert.deepStrictEqual(leftOut, []);
+        assert.strictEqual(typeof Logger.Sentry.browserTracingIntegration, 'function');
     });
 
     it('cannot be replaced', function() {

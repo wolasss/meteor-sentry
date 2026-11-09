@@ -1,0 +1,17 @@
+{
+    "@sentry/browser": {
+        "version": "11.10.0"
+    },
+    "@sentry/browser-utils": {
+        "version": "11.10.0"
+    },
+    "@sentry/conventions": {
+        "version": "0.29.0"
+    },
+    "@sentry/core": {
+        "version": "11.10.0"
+    },
+    "web-vitals": {
+        "version": "6.2.3"
+    }
+}

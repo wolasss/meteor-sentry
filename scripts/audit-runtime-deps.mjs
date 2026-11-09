@@ -1,10 +1,13 @@
 // Checks the npm packages this Meteor package ships against the GitHub advisory
-// database. Dependabot only reads package-lock.json (dev tooling) and never sees
-// Meteor's .npm/package/npm-shrinkwrap.json, so this is the only check on it.
+// database: the server's, which Meteor locks in .npm/package/npm-shrinkwrap.json,
+// and the client's, bundled into lib/vendor. Dependabot sees neither as shipped code,
+// so this is the only check on them.
 import { readFileSync } from 'node:fs';
 import { classifyAdvisories, collectVersions, validateAllowlist } from './runtime-audit.mjs';
 
 const SHRINKWRAP_PATH = new URL('../.npm/package/npm-shrinkwrap.json', import.meta.url);
+// Written by build-client-sdk.mjs, in the shrinkwrap's dependencies shape.
+const CLIENT_SDK_PACKAGES_PATH = new URL('./client-sdk-packages.json', import.meta.url);
 const ALLOWLIST_PATH = new URL('./runtime-audit-allowlist.json', import.meta.url);
 // The endpoint `npm audit` itself queries.
 const ADVISORY_ENDPOINT = 'https://registry.npmjs.org/-/npm/v1/security/advisories/bulk';
@@ -25,12 +28,14 @@ async function fetchAdvisories(versionsByPackage) {
     return response.json();
 }
 
-const versionsByPackage = collectVersions(JSON.parse(readFileSync(SHRINKWRAP_PATH, 'utf8')).dependencies);
-const packageCount = Object.keys(versionsByPackage).length;
+const readJson = (url) => JSON.parse(readFileSync(url, 'utf8'));
+const serverVersions = collectVersions(readJson(SHRINKWRAP_PATH).dependencies);
 // An empty map would pass silently, e.g. if Meteor changes the shrinkwrap layout.
-if (packageCount === 0) {
+if (Object.keys(serverVersions).length === 0) {
     throw new Error(`No packages found in ${SHRINKWRAP_PATH.pathname}`);
 }
+const versionsByPackage = collectVersions(readJson(CLIENT_SDK_PACKAGES_PATH), serverVersions);
+const packageCount = Object.keys(versionsByPackage).length;
 
 const allowlist = loadAllowlist();
 const advisoriesByPackage = await fetchAdvisories(versionsByPackage);

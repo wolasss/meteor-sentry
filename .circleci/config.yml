@@ -39,14 +39,17 @@ jobs:
           paths:
             - ~/.npm
       - run:
+          name: Check the bundled client SDK matches its source
+          command: npm run build:client-sdk && git diff --exit-code lib/vendor scripts/client-sdk-packages.json
+      - run:
           name: Install Chromium for client tests
           command: npx playwright install --with-deps chromium
       - run:
           name: Run tests
           command: npm test -- --release "$METEOR_RELEASE"
 
-  # Dependabot never reads .npm/package/npm-shrinkwrap.json, so this is the only
-  # check on the packages users actually install.
+  # Dependabot sees neither .npm/package/npm-shrinkwrap.json nor the bundled client
+  # SDK as shipped code, so this is the only check on the packages users install.
   audit-runtime-deps:
     executor: meteor
     steps:
