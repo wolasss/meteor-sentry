@@ -1,4 +1,24 @@
 import { Meteor } from 'meteor/meteor';
+import Logger, { Sentry } from 'meteor/wolas:sentry';
+
+// The client before Logger.load(), taken while this file loads, ahead of the root hook below.
+function initErrorBeforeLoad() {
+    try {
+        Logger.init({ dsn: 'https://public@sentry.invalid/1' });
+    } catch(error) {
+        return error;
+    }
+}
+
+export const beforeLoad = Meteor.isClient ? {
+    loggerSentry: Logger.Sentry,
+    namedSentry: Sentry,
+    loggedEventId: Logger.error('logged before load'),
+    initError: initErrorBeforeLoad()
+} : undefined;
+
+// Every test runs with the SDK loaded, as an app does after awaiting it.
+before(() => Logger.load());
 
 // Registered before any init, so captureMethodErrors has to wrap them in place.
 export const methodsBeforeInit = Meteor.methods;

@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { Meteor } from 'meteor/meteor';
 import Logger, { Sentry } from 'meteor/wolas:sentry';
+import { beforeLoad } from './before_init.js';
 import {
     environment,
     logged,
@@ -9,6 +10,20 @@ import {
 
 describe('the Sentry SDK as Logger.Sentry', function() {
     // Runs under the default levels' init.
+
+    it('is what Logger.load resolves with, on every call', async function() {
+        const loaded = await Logger.load();
+
+        assert.strictEqual(loaded, Logger.Sentry);
+        assert.strictEqual(await Logger.load(), loaded);
+    });
+
+    (Meteor.isClient ? it : it.skip)('is missing on the client until Logger.load resolves, and nothing works without it', function() {
+        assert.strictEqual(beforeLoad.loggerSentry, undefined);
+        assert.strictEqual(beforeLoad.namedSentry, undefined);
+        assert.strictEqual(beforeLoad.loggedEventId, undefined);
+        assert.ok(/Await Logger\.load\(\) before Logger\.init/.test(beforeLoad.initError?.message), `init before load threw ${beforeLoad.initError}`);
+    });
 
     it('is the SDK the Logger sends through', async function() {
         // A scoped tag, because the shipped SDK keeps a tag cleared with undefined
