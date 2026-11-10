@@ -1,3 +1,20 @@
+# [4.0.0](https://github.com/wolasss/meteor-sentry/compare/v3.0.0...v4.0.0) (2026-11-10)
+
+
+### Performance Improvements
+
+* **client:** load the Sentry SDK on demand with Logger.load() ([#52](https://github.com/wolasss/meteor-sentry/issues/52)) ([a9daa8c](https://github.com/wolasss/meteor-sentry/commit/a9daa8cac4d0d5bef0d9cfbff5060fc4d7054d7e))
+
+
+### BREAKING CHANGES
+
+* **client:** on the client, await Logger.load() before Logger.init, which throws
+until it resolves. Until then Logger.Sentry and the named Sentry export are undefined,
+and Logger calls send nothing and return undefined, as they already did before
+Logger.init. On the server Logger.load() resolves at once.
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [3.0.0](https://github.com/wolasss/meteor-sentry/compare/v2.1.0...v3.0.0) (2026-11-09)
 
 
