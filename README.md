@@ -18,6 +18,16 @@ This package is MIT Licensed.
 meteor add wolas:sentry
 ```
 
+# Upgrading from 3.x to 4.x
+
+The client no longer loads the Sentry SDK with the page. Await `Logger.load()` once before `Logger.init` on the client (see [Initialization](#initialization-clientserver)). Until it resolves:
+
+- `Logger.init` throws.
+- `Logger.Sentry` and `import { Sentry }` are `undefined`.
+- `Logger.error` and the other levels send nothing and return `undefined`, as they already did before `Logger.init`. `postprocess` still runs.
+
+The server is unchanged. `Logger.load()` exists there too and resolves at once, so isomorphic code can call it on both sides.
+
 # Upgrading from 1.x to 2.x
 
 2.x ships Sentry SDK 11. Read the [Sentry migration guide](https://github.com/getsentry/sentry-javascript/blob/develop/MIGRATION.md) for the full list. The changes most likely to affect you:
@@ -37,12 +47,18 @@ The same interface can be used on a client and server.
 ```
 import Logger from 'meteor/wolas:sentry';
 
+await Logger.load();
+
 Logger.init({
     dsn: YOUR_SENTRY_DSN GOES HERE
 
     //any other options you want to pass to sentry init function
 });
 ```
+
+On the client, `Logger.load()` fetches the Sentry SDK with a dynamic import. Since 4.0 the SDK is not in the app's initial bundle, so it no longer delays the first page render. `Logger.init` throws until the promise resolves. Calling `Logger.load()` again returns the same SDK without fetching it twice, and a failed fetch is retried on the next call. On the server the SDK is already loaded and the promise resolves at once.
+
+Errors thrown before `Logger.init` are not reported, whether the SDK is loaded or not.
 
 ## Release (client/server)
 
@@ -192,6 +208,8 @@ Pass `false` to turn it off, also after an earlier `Logger.init`.
 ## Client options (client)
 
 ```
+await Logger.load();
+
 Logger.init({
     dsn: YOUR_SENTRY_DSN GOES HERE,
     trackUsers: true,
@@ -235,7 +253,7 @@ A `postprocess` hook that throws never breaks the logging call: the call still r
 
 ## Using the Sentry SDK directly (client/server)
 
-For anything the Logger does not wrap, `Logger.Sentry` is the Sentry SDK this package loads and initialises - `@sentry/browser` on the client, `@sentry/node` on the server. It is the same object before and after `Logger.init`, with every top-level SDK function on it (`setTag`, `setContext`, `withScope`, `addBreadcrumb`, `startSpan`, `flush`, `captureMessage`, `getClient`, ...). It is also available as `import { Sentry } from 'meteor/wolas:sentry'`. The client the SDK created is `Logger.Sentry.getClient()`, which is also what `Logger.init` returns.
+For anything the Logger does not wrap, `Logger.Sentry` is the Sentry SDK this package loads and initialises - `@sentry/browser` on the client, `@sentry/node` on the server. On the client it is `undefined` until `Logger.load()` resolves, and `Logger.load()` resolves with it. After that it is the same object before and after `Logger.init`, with every top-level SDK function on it (`setTag`, `setContext`, `withScope`, `addBreadcrumb`, `startSpan`, `flush`, `captureMessage`, `getClient`, ...). It is also available as `import { Sentry } from 'meteor/wolas:sentry'`. The client the SDK created is `Logger.Sentry.getClient()`, which is also what `Logger.init` returns.
 
 On the client, session replay, the feedback widget and browser profiling are left out since 3.0: `replayIntegration`, `replayCanvasIntegration`, `getReplay`, `feedbackIntegration`, `feedbackAsyncIntegration`, `feedbackSyncIntegration`, `getFeedback`, `sendFeedback`, `browserProfilingIntegration` and `uiProfiler` are not on `Logger.Sentry`. Meteor bundles a package's npm modules whole, without tree shaking, so the full `@sentry/browser` 11 put 1.1 MiB into every app's initial page load. The package now ships its own build of the SDK with only the code the remaining functions use, and those three features were half of it.
 
@@ -244,6 +262,7 @@ On the client:
 ```
 import Logger from 'meteor/wolas:sentry';
 
+await Logger.load();
 Logger.init({ dsn: YOUR_SENTRY_DSN GOES HERE });
 
 Logger.Sentry.setTag('tenant', tenantId);
