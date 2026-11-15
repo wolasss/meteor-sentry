@@ -14,6 +14,7 @@ describe(`wolas:sentry on the ${environment}`, function() {
     require('./subscription_breadcrumbs.test.js');
     require('./user_tracking.test.js');
     require('./release.test.js');
+    require('./level_breadcrumbs.test.js');
 
     it('rejects unknown levels', function() {
         assert.throws(() => Logger.init({ dsn, levels: ['warn'] }), /unknown levels: warn/);
