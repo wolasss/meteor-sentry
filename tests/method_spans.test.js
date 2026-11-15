@@ -5,6 +5,7 @@ import Logger from 'meteor/wolas:sentry';
 import {
     logged,
     nextEvent,
+    eventsDuring,
     transactionsDuring,
     methodTransactions
 } from './harness.js';
@@ -161,13 +162,14 @@ import {
     });
 
     it('reports an async rejection once, rejects with it as is and ends the span with an error status', async function() {
-        let reported;
+        let events;
         const transaction = await onlyMethodTransaction(async () => {
-            const captured = nextEvent();
-            await assert.rejects(callAsCaller('wolas-sentry-test.span.rejects'), thrown => thrown === rejectedError);
-            reported = await captured;
+            events = await eventsDuring(() =>
+                assert.rejects(callAsCaller('wolas-sentry-test.span.rejects'), thrown => thrown === rejectedError));
         });
 
+        assert.strictEqual(events.length, 1, `expected one reported event, got ${events.length}`);
+        const [reported] = events;
         assert.strictEqual(reported.exception.values[0].value, rejectedError.message);
         assert.strictEqual(reported.tags['meteor.method'], 'wolas-sentry-test.span.rejects');
         assertMethodTransaction(transaction, 'wolas-sentry-test.span.rejects');
