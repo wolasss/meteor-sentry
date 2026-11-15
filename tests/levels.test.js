@@ -138,9 +138,11 @@ describe('with the default levels', function() {
 });
 
 describe('with custom levels', function() {
+    const levels = ['info'];
+
     before(function() {
         // On the server it also turns traceMethods and tracePublications off after the default levels' init turned them on.
-        initLogger(Meteor.isServer ? { levels: ['info'], captureMethodErrors: true } : { levels: ['info'] });
+        initLogger(Meteor.isServer ? { levels, captureMethodErrors: true } : { levels });
     });
 
     it('sends a listed level', async function() {
@@ -149,6 +151,16 @@ describe('with custom levels', function() {
 
     it('does not send an unlisted level, even for an Error', async function() {
         await assertNotSent('error', new Error('boom'), 'info');
+    });
+
+    it('keeps the levels it was given when the app changes its array afterwards', async function() {
+        levels.push('error');
+
+        try {
+            await assertNotSent('error', 'error message', 'info');
+        } finally {
+            levels.pop();
+        }
     });
 
     require('./method_tracing_off.test.js');
