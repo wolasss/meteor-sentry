@@ -12,6 +12,7 @@ import {
 (Meteor.isServer ? describe : describe.skip)('traceMethods on the server', function() {
     // Runs under the default levels' init, which turned on both captureMethodErrors and traceMethods.
     const thrownError = new Error('thrown from a traced method');
+    const rejectedError = new Error('rejected from a traced method');
     const deniedError = new Meteor.Error('denied');
     const clientSafeError = Object.assign(new Error('client safe'), { isClientSafe: true, error: 'denied' });
     const caller = { name: 'outer', userId: 'user-1', connection: null, setUserId() {}, randomSeed: 'wolas-sentry-test' };
@@ -27,6 +28,10 @@ import {
             },
             'wolas-sentry-test.span.throws'() {
                 throw thrownError;
+            },
+            async 'wolas-sentry-test.span.rejects'() {
+                await new Promise(resolve => setTimeout(resolve, 0));
+                throw rejectedError;
             },
             async 'wolas-sentry-test.span.denied'() {
                 throw deniedError;
@@ -152,6 +157,20 @@ import {
         assert.strictEqual(reported.exception.values[0].value, thrownError.message);
         assert.strictEqual(reported.tags['meteor.method'], 'wolas-sentry-test.span.throws');
         assertMethodTransaction(transaction, 'wolas-sentry-test.span.throws');
+        assert.strictEqual(transaction.contexts.trace.status, 'internal_error');
+    });
+
+    it('reports an async rejection once, rejects with it as is and ends the span with an error status', async function() {
+        let reported;
+        const transaction = await onlyMethodTransaction(async () => {
+            const captured = nextEvent();
+            await assert.rejects(callAsCaller('wolas-sentry-test.span.rejects'), thrown => thrown === rejectedError);
+            reported = await captured;
+        });
+
+        assert.strictEqual(reported.exception.values[0].value, rejectedError.message);
+        assert.strictEqual(reported.tags['meteor.method'], 'wolas-sentry-test.span.rejects');
+        assertMethodTransaction(transaction, 'wolas-sentry-test.span.rejects');
         assert.strictEqual(transaction.contexts.trace.status, 'internal_error');
     });
 
