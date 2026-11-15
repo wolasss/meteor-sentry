@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { Meteor } from 'meteor/meteor';
+import { DDP } from 'meteor/ddp';
 import Logger from 'meteor/wolas:sentry';
 import {
     environment,
@@ -8,6 +9,7 @@ import {
     logged,
     sentryClient,
     postprocessCalls,
+    nextEvent,
     markBreadcrumbs,
     breadcrumbsAfter
 } from './harness.js';
@@ -203,5 +205,62 @@ describe(`level breadcrumbs on the ${environment}`, function() {
         const breadcrumbs = await trail(() => Logger.info(unique('info rejected on')));
 
         assert.deepStrictEqual(breadcrumbs, []);
+    });
+});
+
+// Meteor forks no isolation scope per DDP invocation: every one on a WebSocket shares one.
+// The shared scope is played by one withIsolationScope around both invocations.
+(Meteor.isServer ? describe : describe.skip)('level breadcrumbs across DDP invocations on the server', function() {
+    const crashingMethod = 'wolas-sentry-test.level-breadcrumbs.crash';
+    let crashMessage;
+
+    before(function() {
+        Meteor.methods({
+            [crashingMethod]() {
+                Logger.info(crashMessage);
+                throw new Error('level breadcrumbs crash');
+            }
+        });
+    });
+
+    beforeEach(() => initWith({ levelBreadcrumbs: true, captureMethodErrors: true }));
+    after(() => initWith());
+
+    const invocation = name => ({ name, userId: null, connection: null, setUserId() {}, randomSeed: 'wolas-sentry-test' });
+    const inInvocation = (current, action) => DDP._CurrentMethodInvocation.withValue(current, action);
+
+    it('keeps one invocation\'s breadcrumb off another\'s event', function() {
+        const first = invocation('first');
+        const second = invocation('second');
+        const message = unique('first invocation');
+
+        return Logger.Sentry.withIsolationScope(async () => {
+            const mark = markBreadcrumbs();
+
+            inInvocation(first, () => Logger.info(message));
+
+            const { event: secondEvent } = await inInvocation(second, () => logged('error', unique('second sentinel')));
+            const { event: outsideEvent } = await logged('error', unique('outside sentinel'));
+            const { event: firstEvent } = await inInvocation(first, () => logged('error', unique('first sentinel')));
+
+            assert.deepStrictEqual(breadcrumbsAfter(secondEvent, mark, 'logger'), []);
+            assert.deepStrictEqual(breadcrumbsAfter(outsideEvent, mark, 'logger'), []);
+            assert.deepStrictEqual(messagesAndLevels(breadcrumbsAfter(firstEvent, mark, 'logger')), [{ message, level: 'info' }]);
+        });
+    });
+
+    it('carries the method\'s own trail on its reported crash', function() {
+        crashMessage = unique('before crash');
+
+        return Logger.Sentry.withIsolationScope(async () => {
+            const mark = markBreadcrumbs();
+            const captured = nextEvent();
+
+            await assert.rejects(Meteor.callAsync(crashingMethod), /level breadcrumbs crash/);
+
+            const event = await captured;
+
+            assert.deepStrictEqual(messagesAndLevels(breadcrumbsAfter(event, mark, 'logger')), [{ message: crashMessage, level: 'info' }]);
+        });
     });
 });
