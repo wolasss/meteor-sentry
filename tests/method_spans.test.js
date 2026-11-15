@@ -5,6 +5,7 @@ import Logger from 'meteor/wolas:sentry';
 import {
     logged,
     nextEvent,
+    eventsDuring,
     transactionsDuring,
     methodTransactions
 } from './harness.js';
@@ -12,6 +13,8 @@ import {
 (Meteor.isServer ? describe : describe.skip)('traceMethods on the server', function() {
     // Runs under the default levels' init, which turned on both captureMethodErrors and traceMethods.
     const thrownError = new Error('thrown from a traced method');
+    // Its own value: Sentry's dedupe integration drops a second report of thrownError.
+    const insideError = new Error('reported inside a traced method');
     const deniedError = new Meteor.Error('denied');
     const clientSafeError = Object.assign(new Error('client safe'), { isClientSafe: true, error: 'denied' });
     const caller = { name: 'outer', userId: 'user-1', connection: null, setUserId() {}, randomSeed: 'wolas-sentry-test' };
@@ -27,6 +30,9 @@ import {
             },
             'wolas-sentry-test.span.throws'() {
                 throw thrownError;
+            },
+            'wolas-sentry-test.span.throws-inside'() {
+                throw insideError;
             },
             async 'wolas-sentry-test.span.denied'() {
                 throw deniedError;
@@ -171,5 +177,36 @@ import {
 
         assertMethodTransaction(transaction, 'wolas-sentry-test.span.client-safe');
         assert.strictEqual(transaction.contexts.trace.status, 'ok');
+    });
+
+    it('reports a thrown error exactly once, inside the method\'s failed span', async function() {
+        let transaction;
+        // Called outside any DDP invocation, so the report has no invocation context of its own:
+        // only the span's scope can give it the method's tag and the user from `this`. A report
+        // around the span would carry neither. Sentry ties a thrown error to the span it escaped
+        // either way, so the trace and span ids alone cannot tell the order.
+        const events = await eventsDuring(async () => {
+            transaction = await onlyMethodTransaction(() => {
+                assert.throws(() => Meteor.server.method_handlers['wolas-sentry-test.span.throws-inside'].call({ userId: 'span-user' }),
+                    thrown => thrown === insideError);
+            });
+        });
+
+        assert.strictEqual(events.length, 1, `expected one error event, got ${events.length}`);
+        assert.strictEqual(events[0].exception.values[0].value, insideError.message);
+        assert.strictEqual(events[0].tags?.['meteor.method'], 'wolas-sentry-test.span.throws-inside');
+        assert.strictEqual(events[0].user?.id, 'span-user');
+        assert.strictEqual(events[0].contexts.trace.trace_id, transaction.contexts.trace.trace_id);
+        assert.strictEqual(transaction.contexts.trace.status, 'internal_error');
+    });
+
+    it('reports neither a Meteor.Error nor an isClientSafe error', async function() {
+        const events = await eventsDuring(async () => {
+            await assert.rejects(callAsCaller('wolas-sentry-test.span.denied'), thrown => thrown === deniedError);
+            assert.throws(() => Meteor.server.method_handlers['wolas-sentry-test.span.client-safe'].call({ userId: 'u' }),
+                thrown => thrown === clientSafeError);
+        });
+
+        assert.deepStrictEqual(events, []);
     });
 });
