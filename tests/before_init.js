@@ -17,6 +17,10 @@ export const beforeLoad = Meteor.isClient ? {
     initError: initErrorBeforeLoad()
 } : undefined;
 
+// Logged before any init, and on the client before load: it must leave no breadcrumb.
+export const messageBeforeInit = 'level breadcrumb before init';
+export const returnedBeforeInit = Logger.info(messageBeforeInit);
+
 // Every test runs with the SDK loaded, as an app does after awaiting it.
 before(() => Logger.load());
 

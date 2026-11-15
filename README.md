@@ -124,6 +124,17 @@ Logger.init({
 });
 ```
 
+To still see the levels you do not send, pass `levelBreadcrumbs: true`:
+
+```
+Logger.init({
+    dsn: YOUR_SENTRY_DSN GOES HERE,
+    levelBreadcrumbs: true
+});
+```
+
+Each `Logger` call at a level that is not sent then leaves a breadcrumb with category `logger`, its level (`critical` becomes `fatal`) and its message (an `Error` gives its message). It shows in the breadcrumb trail of the next event sent from that client or server request. On the server, a breadcrumb left inside a Meteor method or publication shows only on events that same call sends through `Logger`, or on its crash reported by `captureMethodErrors`, never on another user's. The extra data and Error stacks are never copied onto it. Sent levels add none, since they are events already. Sentry's `maxBreadcrumbs` and `beforeBreadcrumb` still apply. The option is off by default.
+
 This only applies to `Logger` calls. Events Sentry captures by itself, such as unhandled exceptions, are always sent. Use Sentry's `beforeSend` to filter those.
 
 ## Logging unhandled exceptions (client/server)
