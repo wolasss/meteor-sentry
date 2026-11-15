@@ -1,8 +1,8 @@
 import { Meteor } from 'meteor/meteor';
-import { Tracker } from 'meteor/tracker';
 import assert from 'assert';
 import Logger from 'meteor/wolas:sentry';
 import {
+    fakeMeteorUser,
     initLogger,
     logged,
     markBreadcrumbs,
@@ -15,7 +15,7 @@ import {
 } from './before_init.js';
 
 (Meteor.isClient ? describe : describe.skip)('method breadcrumbs and client options', function() {
-    const originalUser = Meteor.user;
+    let user;
 
     async function methodBreadcrumbsSince(mark) {
         const { event } = await logged('error');
@@ -26,11 +26,12 @@ import {
         initLogger();
     });
 
-    after(function() {
-        if(originalUser === undefined) {
-            delete Meteor.user;
-        } else {
-            Meteor.user = originalUser;
+    // Each user test installs its own fake, so restore after each: a second fakeMeteorUser()
+    // over an unrestored one would save the first fake as the original.
+    afterEach(function() {
+        if(user) {
+            user.restore();
+            user = undefined;
         }
     });
 
@@ -124,37 +125,22 @@ import {
     });
 
     it('stops tracking the user when a later init turns trackUsers off', async function() {
-        const dependency = new Tracker.Dependency();
-        let currentUser = { emails: [{ address: 'tracked@example.com' }] };
-
-        Meteor.user = () => {
-            dependency.depend();
-            return currentUser;
-        };
+        user = fakeMeteorUser();
+        user.set({ emails: [{ address: 'tracked@example.com' }] });
         initLogger();
         initLogger({ trackUsers: false });
 
-        currentUser = { emails: [{ address: 'after-opt-out@example.com' }] };
-        dependency.changed();
-        Tracker.flush();
+        user.set({ emails: [{ address: 'after-opt-out@example.com' }] });
 
         const { event } = await logged('error', 'after trackUsers was turned off');
         assert.strictEqual(event.user?.email, undefined);
     });
 
     it('does not track the user when trackUsers is false', async function() {
-        const dependency = new Tracker.Dependency();
-        let currentUser = null;
-
-        Meteor.user = () => {
-            dependency.depend();
-            return currentUser;
-        };
+        user = fakeMeteorUser();
         initLogger({ trackUsers: false });
 
-        currentUser = { emails: [{ address: 'untracked@example.com' }] };
-        dependency.changed();
-        Tracker.flush();
+        user.set({ emails: [{ address: 'untracked@example.com' }] });
 
         const { event } = await logged('error', 'with trackUsers off');
         assert.strictEqual(event.user?.email, undefined);
