@@ -13,6 +13,7 @@ import { testPublication } from './before_init.js';
     // Runs under the default levels' init, which turned on tracePublications.
     const result = { marker: 'pub' };
     const thrownError = new Error('thrown from a traced publication');
+    const deniedError = new Meteor.Error('denied');
     const universalName = 'meteor.publication (universal)';
     let seen;
     let universalHandler;
@@ -31,6 +32,10 @@ import { testPublication } from './before_init.js';
         });
         Meteor.publish('wolas-sentry-test.pub.throws', function() {
             throw thrownError;
+        });
+        Meteor.publish('wolas-sentry-test.pub.denied', async function() {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            throw deniedError;
         });
         Meteor.server.publish({
             'wolas-sentry-test.pub.object'(...args) {
@@ -147,6 +152,16 @@ import { testPublication } from './before_init.js';
         });
 
         assertPublicationTransaction(transaction, 'wolas-sentry-test.pub.throws');
+        assert.strictEqual(transaction.contexts.trace.status, 'internal_error');
+    });
+
+    // Unlike a method's, where a Meteor.Error is the intended answer and leaves the span ok.
+    it('marks an async publication that rejects with a Meteor.Error failed, and rejects with the same error', async function() {
+        const transaction = await onlyPublicationTransaction(() =>
+            assert.rejects(runAs(handlerOf('wolas-sentry-test.pub.denied'), subscription()),
+                thrown => thrown === deniedError));
+
+        assertPublicationTransaction(transaction, 'wolas-sentry-test.pub.denied');
         assert.strictEqual(transaction.contexts.trace.status, 'internal_error');
     });
 
