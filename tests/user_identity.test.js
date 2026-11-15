@@ -62,6 +62,22 @@ import {
         assert.strictEqual(sentryUser?.email, undefined);
     });
 
+    it('sets the id while a resumed session waits for the user document', async function() {
+        const originalUserId = Meteor.userId;
+        Meteor.userId = () => 'u6';
+
+        try {
+            user.set(null);
+            const sentryUser = await userOnNextEvent();
+
+            assert.strictEqual(sentryUser.id, 'u6');
+            assert.strictEqual(sentryUser.email, undefined);
+        } finally {
+            Meteor.userId = originalUserId;
+            user.set(null);
+        }
+    });
+
     // Last: it leaves tracking off until the after hook re-inits with the defaults.
     it('sets no user when trackUsers is off', async function() {
         initLogger({ trackUsers: false });
