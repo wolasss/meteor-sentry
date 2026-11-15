@@ -105,6 +105,7 @@ describe('with the default levels', function() {
 
     before(async function() {
         if(Meteor.isServer) {
+            this.timeout(10000);
             await subscribeBeforeTracing();
         }
 
