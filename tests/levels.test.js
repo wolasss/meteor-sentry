@@ -18,7 +18,8 @@ import {
     testPublication,
     publishBeforeInit,
     serverPublishBeforeInit,
-    publicationHandlerBeforeInit
+    publicationHandlerBeforeInit,
+    subscribeBeforeTracing
 } from './before_init.js';
 
 async function assertSent(level) {
@@ -102,7 +103,11 @@ describe('with every level enabled', function() {
 describe('with the default levels', function() {
     let initResult;
 
-    before(function() {
+    before(async function() {
+        if(Meteor.isServer) {
+            await subscribeBeforeTracing();
+        }
+
         initResult = initLogger(Meteor.isServer ? { captureMethodErrors: true, traceMethods: true, tracePublications: true } : {});
     });
 
