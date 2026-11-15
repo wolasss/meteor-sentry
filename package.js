@@ -25,5 +25,6 @@ Package.onUse(function(api) {
 Package.onTest(function(api) {
   api.use(['ecmascript', 'ddp', 'meteortesting:mocha', 'wolas:sentry']);
   api.addFiles('tests/reinit.test.js');
+  api.addFiles('tests/sdk_load.test.js', 'client');
   api.mainModule('tests/logger.test.js');
 });
