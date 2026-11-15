@@ -9,7 +9,7 @@ This package is MIT Licensed.
 
 # Requirements
 
-- 2.x: Meteor 3.0 or newer (Sentry SDK 11 needs Node 20.19 or newer).
+- 2.x and later: Meteor 3.0 or newer (Sentry SDK 11 needs Node 20.19 or newer).
 - Meteor 2: stay on 1.x.
 
 # Installation
