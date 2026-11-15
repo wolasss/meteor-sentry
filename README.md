@@ -219,7 +219,7 @@ Logger.init({
 });
 ```
 
-- `trackUsers` (default `true`) - attaches the signed-in user's email to every event. Needs `accounts-base`.
+- `trackUsers` (default `true`) - attaches the signed-in user's id (the Meteor `_id`, the same `user.id` the server context uses) to every client event, plus their email when the user has one. Both are cleared on logout. Needs `accounts-base`.
 - `methodBreadcrumbs` (default `true`) - adds a `meteor.method` breadcrumb named after each `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, so an event shows which methods ran before it. Method arguments are never included, as they can hold passwords. Pass `false` to turn it off, also after an earlier `Logger.init`. Its companion for subscriptions is `subscriptionBreadcrumbs`.
 - `subscriptionBreadcrumbs` (default `true`) - adds a `meteor.subscription` breadcrumb named after each `Meteor.subscribe` and `Meteor.connection.subscribe`, so an event inside a template or hook shows which subscriptions were opened before it. Subscription arguments are never included, as they can hold tokens. Pass `false` to turn it off, also after an earlier `Logger.init`.
 - `traceMethods` (default `false`) - starts a span per `Meteor.call`, `Meteor.callAsync`, `Meteor.apply` and `Meteor.applyAsync`, beside the breadcrumb. It needs `tracesSampleRate` (or `tracesSampler`): without one, Sentry records no spans and nothing is sent.
