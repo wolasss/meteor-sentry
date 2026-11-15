@@ -1,4 +1,5 @@
 import { Meteor } from 'meteor/meteor';
+import { DDP } from 'meteor/ddp';
 import Logger, { Sentry } from 'meteor/wolas:sentry';
 
 // The client before Logger.load(), taken while this file loads, ahead of the root hook below.
@@ -37,6 +38,18 @@ export const serverPublishBeforeInit = Meteor.isServer ? Meteor.server.publish :
 export const publicationHandlerBeforeInit = function() {
     this.ready();
 };
+
+// A subscription already running when an init turns tracePublications on. Server only.
+export let connectionSubscribedBeforeTracing;
+
+export function subscribeBeforeTracing() {
+    connectionSubscribedBeforeTracing = DDP.connect(Meteor.absoluteUrl());
+
+    return new Promise((resolve, reject) => {
+        connectionSubscribedBeforeTracing.subscribe(testPublication, { onReady: resolve, onStop: reject });
+    });
+}
+
 export const pingMethods = ['call', 'callAsync', 'apply', 'applyAsync'].map(alias => `wolas-sentry-test.ping.${alias}`);
 export const syncHandlerBeforeInit = function() {
     throw syncErrorBeforeInit;

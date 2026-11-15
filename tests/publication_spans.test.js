@@ -7,7 +7,7 @@ import {
     transactionsDuring,
     publicationTransactions
 } from './harness.js';
-import { testPublication } from './before_init.js';
+import { testPublication, connectionSubscribedBeforeTracing } from './before_init.js';
 
 (Meteor.isServer ? describe : describe.skip)('tracePublications on the server', function() {
     // Runs under the default levels' init, which turned on tracePublications.
@@ -18,7 +18,7 @@ import { testPublication } from './before_init.js';
     let universalHandler;
     let connection;
 
-    before(function() {
+    before(async function() {
         // Only ever called directly, never subscribed to.
         Meteor.publish('wolas-sentry-test.pub.sync', function(...args) {
             seen = { self: this, args };
@@ -47,6 +47,15 @@ import { testPublication } from './before_init.js';
             this.ready();
         });
         universalHandler = Meteor.server.universal_publish_handlers[Meteor.server.universal_publish_handlers.length - 1];
+        // It also starts on the session subscribed before init. Its traced run ends here,
+        // not inside the first test's window.
+        await transactionsDuring(() => {});
+        // A login reruns the session's subscriptions, the way accounts-base does.
+        Meteor.methods({
+            async 'wolas-sentry-test.pub.login'(userId) {
+                await this.setUserId(userId);
+            }
+        });
     });
 
     after(function() {
@@ -60,6 +69,8 @@ import { testPublication } from './before_init.js';
         if(connection) {
             connection.disconnect();
         }
+
+        connectionSubscribedBeforeTracing?.disconnect();
     });
 
     beforeEach(function() {
@@ -207,5 +218,16 @@ import { testPublication } from './before_init.js';
 
         assertPublicationTransaction(transaction, testPublication);
         assert.strictEqual(transaction.user?.id, undefined);
+    });
+
+    it('traces a subscription already running at init when a login reruns it', async function() {
+        this.timeout(10000);
+
+        // The rerun calls the handler the subscription started with, not the registry's.
+        const sent = nextTransaction(event => event.transaction === testPublication && event.user?.id === 'rerun-user');
+
+        await connectionSubscribedBeforeTracing.callAsync('wolas-sentry-test.pub.login', 'rerun-user');
+
+        assertPublicationTransaction(await sent, testPublication);
     });
 });
