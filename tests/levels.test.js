@@ -8,6 +8,7 @@ import {
     environment,
     postprocessCalls,
     initLogger,
+    sentryClient,
     logged,
     eventsDuring
 } from './harness.js';
@@ -41,6 +42,20 @@ async function assertNotSent(level, event, sentinelLevel) {
     assert.strictEqual(eventId, undefined);
     assert.deepStrictEqual(events, []);
     assert.deepStrictEqual(postprocessCalls[0], { level, event, extra: { orderId: 42 } });
+}
+
+// Every server client adds a process listener, and a full init more trips Node's listener
+// limit (see server_context.test.js). Closing the client this one replaces takes its own off;
+// client reports and these integrations add listeners close does not take off (see release.test.js).
+async function quietInit(switches) {
+    await sentryClient()?.close();
+
+    return initLogger({
+        ...switches,
+        sendClientReports: false,
+        integrations: defaults => defaults.filter(integration =>
+            !['OnUncaughtException', 'OnUnhandledRejection', 'ProcessSession', 'ChildProcess'].includes(integration.name))
+    });
 }
 
 describe('with every level enabled', function() {
@@ -157,16 +172,16 @@ describe('with custom levels', function() {
 
 (Meteor.isServer ? describe : describe.skip)('with method capture off and tracing on', function() {
     before(function() {
-        initLogger({
-            captureMethodErrors: false,
-            traceMethods: true,
-            // Client reports and these integrations add process listeners on every init; one more
-            // full init on the server trips Node's listener limit (see server_context.test.js).
-            sendClientReports: false,
-            integrations: defaults => defaults.filter(integration =>
-                !['OnUncaughtException', 'OnUnhandledRejection', 'ProcessSession'].includes(integration.name))
-        });
+        return quietInit({ captureMethodErrors: false, traceMethods: true });
     });
 
     require('./method_capture_off.test.js');
+});
+
+(Meteor.isServer ? describe : describe.skip)('with every server switch on again', function() {
+    require('./handler_reinit.test.js').describeReinitOn(quietInit);
+});
+
+(Meteor.isServer ? describe : describe.skip)('with every server switch off after install', function() {
+    require('./handler_reinit.test.js').describeAllOff(quietInit);
 });
