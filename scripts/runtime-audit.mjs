@@ -12,11 +12,26 @@ export function collectVersions(dependencies, versionsByPackage = {}) {
     return versionsByPackage;
 }
 
+function isIsoDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return false;
+    }
+    // Date rolls an impossible day over ("2026-02-30" becomes March 2), so read it back.
+    const time = Date.parse(`${value}T00:00:00Z`);
+    return !Number.isNaN(time) && new Date(time).toISOString().startsWith(value);
+}
+
 export function validateAllowlist(allowlist) {
     for (const allowed of allowlist) {
         const missing = ['id', 'package', 'reason', 'expires'].filter((field) => !allowed[field]);
         if (missing.length > 0) {
             throw new Error(`Allowlist entry ${JSON.stringify(allowed)} is missing: ${missing.join(', ')}`);
+        }
+        // classifyAdvisories compares expiry dates as strings, which only orders them
+        // correctly as zero-padded YYYY-MM-DD: "2026-9-30" would sort after "2026-10-01"
+        // and keep an advisory ignored past its expiry.
+        if (!isIsoDate(allowed.expires)) {
+            throw new Error(`Allowlist entry ${JSON.stringify(allowed)} has expires ${JSON.stringify(allowed.expires)}, not a YYYY-MM-DD date`);
         }
     }
     return allowlist;

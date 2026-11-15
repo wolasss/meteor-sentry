@@ -65,6 +65,15 @@ test('validateAllowlist names every missing field', () => {
     });
 });
 
+for (const expires of ['2026-9-30', '2026/09/30', '30-09-2026', '2026-02-30', '2026-13-01', 20270101]) {
+    test(`validateAllowlist rejects expires ${JSON.stringify(expires)}, which is not a YYYY-MM-DD date`, () => {
+        const badDate = entry({ expires });
+        assert.throws(() => validateAllowlist([badDate]), {
+            message: `Allowlist entry ${JSON.stringify(badDate)} has expires ${JSON.stringify(expires)}, not a YYYY-MM-DD date`,
+        });
+    });
+}
+
 test('validateAllowlist returns a valid list unchanged', () => {
     const allowlist = [entry()];
     assert.equal(validateAllowlist(allowlist), allowlist);
